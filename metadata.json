@@ -1,0 +1,5 @@
+{
+  "name": "手語",
+  "description": "A search engine for Taiwan Sign Language (TSL) segments within Taiwan CDC press conferences.",
+  "requestFramePermissions": []
+}
