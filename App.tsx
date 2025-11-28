@@ -73,7 +73,7 @@ const App: React.FC = () => {
             {!state.hasSearched && (
               <div className="flex flex-wrap justify-center gap-2 mt-6 text-sm">
                 <span className="text-gray-500 self-center">常查詞彙：</span>
-                {["疫苗", "戴口罩", "隔離", "快篩", "專責病床", "馬堡病毒", "伊波拉", "霸凌"].map(tag => (
+                {["降級", "解編", "1194天", "陳時中", "祈福餅乾", "終場", "第四類", "馬堡病毒", "大角星"].map(tag => (
                   <button
                     key={tag}
                     onClick={() => handleSearch(tag)}

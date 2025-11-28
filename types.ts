@@ -8,7 +8,6 @@ export interface VideoResult {
   transcriptSnippet: string; // The sentence containing the keyword
   matchIndex?: number; // Start index of match for highlighting
   matchLength?: number; // Length of match for highlighting
-  matchedTerm?: string; // The specific term that triggered the match (useful for synonyms)
 }
 
 export interface WebSource {
