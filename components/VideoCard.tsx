@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { VideoResult } from '../types';
-import { ExternalLink, Clock } from 'lucide-react';
+import { ExternalLink, Clock, PlayCircle } from 'lucide-react';
 
 interface VideoCardProps {
   result: VideoResult;
@@ -30,6 +30,9 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
     );
   };
 
+  // Use the specific term that matched (e.g. from synonym expansion) or fallback to user query
+  const highlightTerm = result.matchedTerm || searchQuery;
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col md:flex-row group">
       {/* Thumbnail Link Section */}
@@ -48,6 +51,11 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
             (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${result.youtubeId}/mqdefault.jpg`;
           }}
         />
+        {/* Play Icon Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-300 bg-black/20">
+          <PlayCircle className="w-12 h-12 text-white drop-shadow-lg" />
+        </div>
+        
         {/* Timestamp Badge */}
         <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-mono">
           {formatTime(startTime)}
@@ -61,7 +69,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
             <h3 className="text-lg font-bold text-gray-900 line-clamp-2 group-hover:text-teal-700 transition-colors">
               <a href={videoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2">
                 {result.title}
-                <ExternalLink className="w-4 h-4 text-gray-400" />
+                <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-teal-600" />
               </a>
             </h3>
           </div>
@@ -77,7 +85,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
 
           <div className="p-4 bg-slate-50 rounded-lg border-l-4 border-teal-500">
             <p className="text-gray-700 text-base leading-relaxed">
-              " {getHighlightedText(result.transcriptSnippet, searchQuery)} "
+              " {getHighlightedText(result.transcriptSnippet, highlightTerm)} "
             </p>
           </div>
         </div>

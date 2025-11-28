@@ -552,14 +552,15 @@ export const checkLocalData = (query: string): VideoResult[] => {
   transcriptData.forEach(segment => {
     if (segment.text.toLowerCase().includes(normalizedQuery)) {
       results.push({
-        id: `local-${segment.seconds}`,
+        id: `local-${segment.seconds}-${normalizedQuery}`, // Unique ID includes query to differentiate if same segment matches multiple times (though logic below handles dedupe)
         youtubeId: DEMO_VIDEO_ID, // Uses the constant from constants.ts
         title: VIDEO_TITLE,
         date: VIDEO_DATE,
         timestamp: segment.seconds,
         transcriptSnippet: segment.text,
         matchIndex: segment.text.toLowerCase().indexOf(normalizedQuery),
-        matchLength: normalizedQuery.length
+        matchLength: normalizedQuery.length,
+        matchedTerm: normalizedQuery // Store the term that matched
       });
     }
   });
