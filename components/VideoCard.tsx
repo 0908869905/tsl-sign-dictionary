@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { VideoResult } from '../types';
-import { Play, Clock } from 'lucide-react';
+import { ExternalLink, Clock } from 'lucide-react';
 
 interface VideoCardProps {
   result: VideoResult;
@@ -48,11 +48,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
             (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${result.youtubeId}/mqdefault.jpg`;
           }}
         />
-        <div className="absolute inset-0 flex items-center justify-center opacity-80 group-hover/thumb:opacity-100 transition-opacity">
-          <div className="w-14 h-14 bg-teal-600/90 rounded-full flex items-center justify-center text-white shadow-lg backdrop-blur-sm group-hover/thumb:scale-110 transition-transform">
-             <Play className="w-7 h-7 ml-1 fill-current" />
-          </div>
-        </div>
+        {/* Timestamp Badge */}
         <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-mono">
           {formatTime(startTime)}
         </div>
@@ -63,8 +59,9 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
         <div>
           <div className="flex items-start justify-between mb-2">
             <h3 className="text-lg font-bold text-gray-900 line-clamp-2 group-hover:text-teal-700 transition-colors">
-              <a href={videoUrl} target="_blank" rel="noreferrer">
+              <a href={videoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2">
                 {result.title}
+                <ExternalLink className="w-4 h-4 text-gray-400" />
               </a>
             </h3>
           </div>
