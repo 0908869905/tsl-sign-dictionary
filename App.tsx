@@ -6,47 +6,44 @@ import Footer from './components/Footer';
 import SearchBar from './components/SearchBar';
 import VideoCard from './components/VideoCard';
 import { SearchState } from './types';
-import { searchVideos } from './services/geminiService';
+import { checkLocalData } from './services/localData';
 import { NO_RESULTS_MESSAGE } from './constants';
-import { Info, BookOpen, Globe, Sparkles } from 'lucide-react';
+import { Info, BookOpen } from 'lucide-react';
 
 const App: React.FC = () => {
   const [state, setState] = useState<SearchState>({
     query: '',
     results: [],
-    webSources: [],
-    expandedTerms: [],
     isLoading: false,
     error: null,
     hasSearched: false,
   });
 
-  const handleSearch = async (query: string) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null, query, webSources: [], expandedTerms: [] }));
+  const handleSearch = (query: string) => {
+    setState(prev => ({ ...prev, isLoading: true, error: null, query }));
     
-    try {
-      const { results, webSources, expandedTerms } = await searchVideos(query);
-      setState({
-        query,
-        results,
-        webSources,
-        expandedTerms,
-        isLoading: false,
-        error: null,
-        hasSearched: true,
-      });
-    } catch (err) {
-      console.error("Search failed:", err);
-      setState({
-        query,
-        results: [],
-        webSources: [],
-        expandedTerms: [],
-        isLoading: false,
-        error: "搜尋服務目前忙碌中，請稍後再試。",
-        hasSearched: true,
-      });
-    }
+    // Simulate a brief delay for better UX interactions
+    setTimeout(() => {
+      try {
+        const results = checkLocalData([query]);
+        setState({
+          query,
+          results,
+          isLoading: false,
+          error: null,
+          hasSearched: true,
+        });
+      } catch (err) {
+        console.error("Search failed:", err);
+        setState({
+          query,
+          results: [],
+          isLoading: false,
+          error: "搜尋發生錯誤，請稍後再試。",
+          hasSearched: true,
+        });
+      }
+    }, 300);
   };
 
   return (
@@ -98,17 +95,6 @@ const App: React.FC = () => {
                     搜尋結果：
                     <span className="text-teal-700">"{state.query}"</span>
                   </h3>
-                  {state.expandedTerms.length > 0 && (
-                    <div className="flex items-start gap-1.5 text-sm text-gray-500">
-                      <Sparkles className="w-3.5 h-3.5 mt-0.5 text-teal-500" />
-                      <span>
-                        AI 聯想詞：
-                        {state.expandedTerms.map((term, i) => (
-                          <span key={i} className="ml-1 text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded text-xs">{term}</span>
-                        ))}
-                      </span>
-                    </div>
-                  )}
                 </div>
                 <span className="text-sm text-gray-500 bg-white border border-gray-200 px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
                   找到 {state.results.length} 個手語片段
@@ -139,9 +125,7 @@ const App: React.FC = () => {
                     </div>
                     <p className="text-lg text-gray-600 mb-2">{NO_RESULTS_MESSAGE}</p>
                     <p className="text-sm text-gray-400 max-w-md mx-auto mb-4">
-                      系統嘗試搜尋了「{state.query}」以及相關詞彙
-                      {state.expandedTerms.length > 0 && `（${state.expandedTerms.join('、')}）`}
-                      ，但在目前的資料庫中未找到匹配片段。
+                      系統嘗試搜尋了「{state.query}」，但在目前的資料庫中未找到匹配片段。
                     </p>
                     <button 
                       onClick={() => handleSearch("疫苗")}
@@ -151,32 +135,6 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 )
-              )}
-
-              {/* Google Search Grounding Sources */}
-              {state.webSources.length > 0 && (
-                <div className="mt-10 border-t border-gray-200 pt-6">
-                  <div className="flex items-center gap-2 mb-3 text-gray-600">
-                    <Globe className="w-4 h-4" />
-                    <h4 className="text-sm font-bold">參考資料來源 (Google Search)</h4>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {state.webSources.map((source, idx) => (
-                      <a 
-                        key={idx}
-                        href={source.uri} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className="flex items-center gap-2 text-xs text-gray-500 hover:text-teal-700 hover:bg-white p-2 rounded transition-colors border border-transparent hover:border-gray-200"
-                      >
-                        <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center bg-gray-100 rounded-full text-[10px] text-gray-600 font-medium">
-                          {idx + 1}
-                        </span>
-                        <span className="truncate">{source.title || source.uri}</span>
-                      </a>
-                    ))}
-                  </div>
-                </div>
               )}
             </div>
           )}

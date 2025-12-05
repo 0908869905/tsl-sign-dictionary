@@ -11,16 +11,9 @@ export interface VideoResult {
   matchLength?: number; // Length of match for highlighting
 }
 
-export interface WebSource {
-  uri: string;
-  title: string;
-}
-
 export interface SearchState {
   query: string;
   results: VideoResult[];
-  webSources: WebSource[];
-  expandedTerms: string[];
   isLoading: boolean;
   error: string | null;
   hasSearched: boolean;
