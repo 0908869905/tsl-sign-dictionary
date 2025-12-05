@@ -13,10 +13,14 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
   // Direct YouTube timestamp link
   const videoUrl = `https://www.youtube.com/watch?v=${result.youtubeId}&t=${startTime}s`;
 
-  // Highlight the matched keyword in the snippet
+  // Highlight the matched keyword (or synonym) in the snippet
   const getHighlightedText = (text: string, highlight: string) => {
     if (!highlight) return <span>{text}</span>;
-    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+    
+    // Escape regex characters to prevent errors with special chars like '(', '?', etc.
+    const escapedHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escapedHighlight})`, 'gi'));
+    
     return (
       <span>
         {parts.map((part, i) => 
@@ -29,6 +33,9 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
       </span>
     );
   };
+
+  // Determine which term to highlight: the actual matched term from search, or the original query
+  const highlightTerm = result.matchedTerm || searchQuery;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col md:flex-row group">
@@ -77,7 +84,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
 
           <div className="p-4 bg-slate-50 rounded-lg border-l-4 border-teal-500">
             <p className="text-gray-700 text-base leading-relaxed">
-              " {getHighlightedText(result.transcriptSnippet, searchQuery)} "
+              " {getHighlightedText(result.transcriptSnippet, highlightTerm)} "
             </p>
           </div>
         </div>

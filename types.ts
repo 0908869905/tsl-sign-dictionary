@@ -6,6 +6,7 @@ export interface VideoResult {
   date: string;
   timestamp: number; // The second where the word appears
   transcriptSnippet: string; // The sentence containing the keyword
+  matchedTerm?: string; // The specific term (query or synonym) that matched
   matchIndex?: number; // Start index of match for highlighting
   matchLength?: number; // Length of match for highlighting
 }

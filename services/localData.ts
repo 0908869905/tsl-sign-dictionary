@@ -141,11 +141,7 @@ const parseTranscripts = () => {
           });
         }
       } else if (line.trim() && currentTime > 0) {
-        // Append to previous segment or handle as continuation if needed
-        // For simplicity in this demo, we treat lines without timestamp as part of the previous timestamp block 
-        // if they immediately follow, but given the format, most lines have timestamps or we can just ignore
-        // pure text lines to keep logic simple, or attach to last segment.
-        // Let's attach to last segment for better context.
+        // Append to previous segment for context
         if (allSegments.length > 0 && allSegments[allSegments.length - 1].videoId === source.videoId) {
            allSegments[allSegments.length - 1].text += " " + line.trim();
         }
@@ -158,25 +154,41 @@ const parseTranscripts = () => {
 
 const DATABASE = parseTranscripts();
 
-export const checkLocalData = (query: string): VideoResult[] => {
-  const normalizedQuery = query.toLowerCase().trim();
-  if (!normalizedQuery) return [];
+// Update to accept multiple queries (original + synonyms)
+export const checkLocalData = (queries: string[]): VideoResult[] => {
+  const normalizedQueries = [...new Set(queries.map(q => q.toLowerCase().trim()).filter(q => q))];
+  
+  if (normalizedQueries.length === 0) return [];
 
   const results: VideoResult[] = [];
+  const addedIds = new Set<string>();
   
-  // Simple full-text search
   DATABASE.forEach((segment, index) => {
-    if (segment.text.toLowerCase().includes(normalizedQuery)) {
-      results.push({
-        id: `local-${segment.videoId}-${index}`,
-        youtubeId: segment.videoId,
-        title: segment.title,
-        date: segment.date,
-        timestamp: segment.timestamp,
-        transcriptSnippet: segment.text,
-        matchIndex: segment.text.toLowerCase().indexOf(normalizedQuery),
-        matchLength: normalizedQuery.length
-      });
+    const textLower = segment.text.toLowerCase();
+    
+    // Check if any of the queries match this segment
+    for (const query of normalizedQueries) {
+      if (textLower.includes(query)) {
+        const id = `local-${segment.videoId}-${index}`;
+        
+        // Avoid duplicates
+        if (!addedIds.has(id)) {
+          results.push({
+            id,
+            youtubeId: segment.videoId,
+            title: segment.title,
+            date: segment.date,
+            timestamp: segment.timestamp,
+            transcriptSnippet: segment.text,
+            matchedTerm: query, // Record which term matched
+            matchIndex: textLower.indexOf(query),
+            matchLength: query.length
+          });
+          addedIds.add(id);
+        }
+        // If matched one synonym, no need to check others for this segment
+        break; 
+      }
     }
   });
 
