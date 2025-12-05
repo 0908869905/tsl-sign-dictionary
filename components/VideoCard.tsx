@@ -1,14 +1,16 @@
 
 import React, { useState } from 'react';
 import { VideoResult } from '../types';
-import { ExternalLink, Clock, PlayCircle, Youtube, Link as LinkIcon, Check } from 'lucide-react';
+import { ExternalLink, Clock, PlayCircle, Youtube, Link as LinkIcon, Check, Star } from 'lucide-react';
 
 interface VideoCardProps {
   result: VideoResult;
   searchQuery: string;
+  isBookmarked?: boolean;
+  onToggleBookmark?: () => void;
 }
 
-const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
+const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked = false, onToggleBookmark }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
   
@@ -45,11 +47,11 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
     );
   };
 
-  // Determine which term to highlight: the actual matched term from search, or the original query
   const highlightTerm = result.matchedTerm || searchQuery;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col group">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col group relative">
+      
       {/* Video Player / Thumbnail Section */}
       <div className="w-full aspect-video bg-gray-900 relative">
         {isPlaying ? (
@@ -90,9 +92,20 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
       </div>
 
       {/* Content Section */}
-      <div className="p-5 flex flex-col justify-between flex-1">
+      <div className="p-5 flex flex-col justify-between flex-1 relative">
+        {/* Bookmark Button - Absolute positioned in content area for better visibility */}
+        {onToggleBookmark && (
+          <button 
+            onClick={onToggleBookmark}
+            className="absolute top-5 right-5 p-2 rounded-full hover:bg-gray-100 transition-colors z-10 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            title={isBookmarked ? "移除收藏" : "加入單字本"}
+          >
+            <Star className={`w-6 h-6 ${isBookmarked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 hover:text-yellow-400'}`} />
+          </button>
+        )}
+
         <div>
-          <div className="flex items-start justify-between mb-2">
+          <div className="flex items-start justify-between mb-2 pr-10">
             <h3 className="text-lg font-bold text-gray-900 line-clamp-2">
               <a href={videoUrl} target="_blank" rel="noreferrer" className="hover:text-teal-700 hover:underline decoration-teal-500/50 transition-colors">
                 {result.title}
