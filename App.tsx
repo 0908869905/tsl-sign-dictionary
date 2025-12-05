@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -8,7 +8,7 @@ import VideoCard from './components/VideoCard';
 import { SearchState } from './types';
 import { checkLocalData } from './services/localData';
 import { NO_RESULTS_MESSAGE } from './constants';
-import { Info, BookOpen } from 'lucide-react';
+import { Info, BookOpen, History, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const [state, setState] = useState<SearchState>({
@@ -19,8 +19,38 @@ const App: React.FC = () => {
     hasSearched: false,
   });
 
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  // Load history from local storage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('tsl_search_history');
+    if (savedHistory) {
+      try {
+        setSearchHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error("Failed to parse search history", e);
+      }
+    }
+  }, []);
+
+  const updateHistory = (newQuery: string) => {
+    const prevHistory = [...searchHistory];
+    // Remove if exists to avoid duplicates, then add to front
+    const filtered = prevHistory.filter(item => item !== newQuery);
+    const updated = [newQuery, ...filtered].slice(0, 5); // Keep max 5 items
+    
+    setSearchHistory(updated);
+    localStorage.setItem('tsl_search_history', JSON.stringify(updated));
+  };
+
+  const clearHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem('tsl_search_history');
+  };
+
   const handleSearch = (query: string) => {
     setState(prev => ({ ...prev, isLoading: true, error: null, query }));
+    updateHistory(query);
     
     // Simulate a brief delay for better UX interactions
     setTimeout(() => {
@@ -69,21 +99,51 @@ const App: React.FC = () => {
             
             <SearchBar onSearch={handleSearch} isLoading={state.isLoading} />
 
-            {/* Quick Tags Suggestion */}
-            {!state.hasSearched && (
-              <div className="flex flex-wrap justify-center gap-2 mt-6 text-sm">
-                <span className="text-gray-500 self-center">常查詞彙：</span>
-                {["口罩", "快篩", "疫苗", "猴痘", "流感", "解編", "降級", "馬堡病毒", "清冠一號"].map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => handleSearch(tag)}
-                    className="text-teal-700 hover:text-teal-900 hover:bg-teal-100 bg-white border border-teal-100 px-3 py-1.5 rounded-full transition-all shadow-sm"
+            {/* History & Recommendations Area */}
+            <div className="flex flex-col items-center gap-4 mt-6">
+              
+              {/* Search History */}
+              {searchHistory.length > 0 && !state.hasSearched && (
+                <div className="flex flex-wrap justify-center items-center gap-2 text-sm animate-in fade-in zoom-in duration-300">
+                  <div className="flex items-center gap-1 text-gray-500 mr-1">
+                    <History className="w-3.5 h-3.5" />
+                    <span>最近搜尋：</span>
+                  </div>
+                  {searchHistory.map(term => (
+                    <button
+                      key={term}
+                      onClick={() => handleSearch(term)}
+                      className="text-gray-600 hover:text-teal-700 hover:bg-white bg-gray-100 border border-gray-200 px-3 py-1 rounded-full transition-all text-xs"
+                    >
+                      {term}
+                    </button>
+                  ))}
+                  <button 
+                    onClick={clearHistory}
+                    className="ml-2 text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition-colors"
+                    title="清除紀錄"
                   >
-                    {tag}
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                ))}
-              </div>
-            )}
+                </div>
+              )}
+
+              {/* Quick Suggestions */}
+              {!state.hasSearched && (
+                <div className="flex flex-wrap justify-center gap-2 text-sm">
+                  <span className="text-gray-500 self-center">常查詞彙：</span>
+                  {["口罩", "快篩", "疫苗", "猴痘", "流感", "解編", "降級", "馬堡病毒", "清冠一號"].map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => handleSearch(tag)}
+                      className="text-teal-700 hover:text-teal-900 hover:bg-teal-100 bg-white border border-teal-100 px-3 py-1.5 rounded-full transition-all shadow-sm"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Results Section */}

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { VideoResult } from '../types';
-import { ExternalLink, Clock, PlayCircle, Youtube } from 'lucide-react';
+import { ExternalLink, Clock, PlayCircle, Youtube, Link as LinkIcon, Check } from 'lucide-react';
 
 interface VideoCardProps {
   result: VideoResult;
@@ -10,11 +10,19 @@ interface VideoCardProps {
 
 const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
   
   // Start 2 seconds early for context
   const startTime = Math.max(0, Math.floor(result.timestamp) - 2);
   const videoUrl = `https://www.youtube.com/watch?v=${result.youtubeId}&t=${startTime}s`;
   const embedUrl = `https://www.youtube.com/embed/${result.youtubeId}?start=${startTime}&autoplay=1&rel=0`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(videoUrl).then(() => {
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+    });
+  };
 
   // Highlight the matched keyword (or synonym) in the snippet
   const getHighlightedText = (text: string, highlight: string) => {
@@ -108,22 +116,33 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery }) => {
         </div>
         
         <div className="mt-4 flex items-center justify-between pt-4 border-t border-gray-100">
-           <button 
-             onClick={() => setIsPlaying(!isPlaying)}
-             className="text-sm font-medium text-gray-600 hover:text-teal-600 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-md hover:bg-teal-50"
-           >
-             {isPlaying ? (
-               <>
-                 <Clock className="w-4 h-4" />
-                 顯示縮圖
-               </>
-             ) : (
-               <>
-                 <PlayCircle className="w-4 h-4" />
-                 在此播放
-               </>
-             )}
-           </button>
+           <div className="flex gap-2">
+             <button 
+               onClick={() => setIsPlaying(!isPlaying)}
+               className="text-sm font-medium text-gray-600 hover:text-teal-600 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-md hover:bg-teal-50"
+             >
+               {isPlaying ? (
+                 <>
+                   <Clock className="w-4 h-4" />
+                   顯示縮圖
+                 </>
+               ) : (
+                 <>
+                   <PlayCircle className="w-4 h-4" />
+                   在此播放
+                 </>
+               )}
+             </button>
+
+             <button 
+               onClick={handleCopyLink}
+               className="text-sm font-medium text-gray-500 hover:text-blue-600 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-md hover:bg-blue-50 relative"
+               title="複製連結"
+             >
+               {showCopied ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+               {showCopied ? "已複製" : "複製連結"}
+             </button>
+           </div>
 
            <a 
                href={videoUrl}
