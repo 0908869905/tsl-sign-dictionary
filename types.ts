@@ -20,6 +20,7 @@ export interface SearchState {
   query: string;
   results: VideoResult[];
   webSources: WebSource[];
+  expandedTerms: string[];
   isLoading: boolean;
   error: string | null;
   hasSearched: boolean;

@@ -8,27 +8,29 @@ import VideoCard from './components/VideoCard';
 import { SearchState } from './types';
 import { searchVideos } from './services/geminiService';
 import { NO_RESULTS_MESSAGE } from './constants';
-import { Info, BookOpen, Globe } from 'lucide-react';
+import { Info, BookOpen, Globe, Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
   const [state, setState] = useState<SearchState>({
     query: '',
     results: [],
     webSources: [],
+    expandedTerms: [],
     isLoading: false,
     error: null,
     hasSearched: false,
   });
 
   const handleSearch = async (query: string) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null, query, webSources: [] }));
+    setState(prev => ({ ...prev, isLoading: true, error: null, query, webSources: [], expandedTerms: [] }));
     
     try {
-      const { results, webSources } = await searchVideos(query);
+      const { results, webSources, expandedTerms } = await searchVideos(query);
       setState({
         query,
         results,
         webSources,
+        expandedTerms,
         isLoading: false,
         error: null,
         hasSearched: true,
@@ -39,6 +41,7 @@ const App: React.FC = () => {
         query,
         results: [],
         webSources: [],
+        expandedTerms: [],
         isLoading: false,
         error: "搜尋服務目前忙碌中，請稍後再試。",
         hasSearched: true,
@@ -89,12 +92,25 @@ const App: React.FC = () => {
           {/* Results Section */}
           {state.hasSearched && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                  搜尋結果：
-                  <span className="text-teal-700">"{state.query}"</span>
-                </h3>
-                <span className="text-sm text-gray-500 bg-white border border-gray-200 px-3 py-1 rounded-full shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between border-b border-gray-200 pb-3 gap-3">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    搜尋結果：
+                    <span className="text-teal-700">"{state.query}"</span>
+                  </h3>
+                  {state.expandedTerms.length > 0 && (
+                    <div className="flex items-start gap-1.5 text-sm text-gray-500">
+                      <Sparkles className="w-3.5 h-3.5 mt-0.5 text-teal-500" />
+                      <span>
+                        AI 聯想詞：
+                        {state.expandedTerms.map((term, i) => (
+                          <span key={i} className="ml-1 text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded text-xs">{term}</span>
+                        ))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <span className="text-sm text-gray-500 bg-white border border-gray-200 px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
                   找到 {state.results.length} 個手語片段
                 </span>
               </div>
@@ -122,9 +138,14 @@ const App: React.FC = () => {
                       <Info className="w-8 h-8 text-gray-400" />
                     </div>
                     <p className="text-lg text-gray-600 mb-2">{NO_RESULTS_MESSAGE}</p>
+                    <p className="text-sm text-gray-400 max-w-md mx-auto mb-4">
+                      系統嘗試搜尋了「{state.query}」以及相關詞彙
+                      {state.expandedTerms.length > 0 && `（${state.expandedTerms.join('、')}）`}
+                      ，但在目前的資料庫中未找到匹配片段。
+                    </p>
                     <button 
                       onClick={() => handleSearch("疫苗")}
-                      className="text-teal-600 font-medium hover:underline mt-2"
+                      className="text-teal-600 font-medium hover:underline px-4 py-2 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors"
                     >
                       試試看搜尋「疫苗」？
                     </button>

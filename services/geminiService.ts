@@ -5,8 +5,8 @@ import { checkLocalData } from "./localData";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const searchVideos = async (query: string): Promise<{ results: VideoResult[], webSources: WebSource[] }> => {
-  if (!query.trim()) return { results: [], webSources: [] };
+export const searchVideos = async (query: string): Promise<{ results: VideoResult[], webSources: WebSource[], expandedTerms: string[] }> => {
+  if (!query.trim()) return { results: [], webSources: [], expandedTerms: [] };
 
   try {
     // Parallel Execution: Synonym Expansion + Web Grounding
@@ -69,14 +69,15 @@ export const searchVideos = async (query: string): Promise<{ results: VideoResul
       index === self.findIndex((s) => s.uri === source.uri)
     ).slice(0, 4); // Limit to 4 sources
 
-    return { results, webSources: uniqueWebSources };
+    return { results, webSources: uniqueWebSources, expandedTerms: synonyms };
 
   } catch (error) {
     console.error("Gemini API Error:", error);
     // Fallback to basic local search if API fails
     return { 
       results: checkLocalData([query]), 
-      webSources: [] 
+      webSources: [],
+      expandedTerms: []
     };
   }
 };
