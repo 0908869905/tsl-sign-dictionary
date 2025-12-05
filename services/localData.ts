@@ -8,6 +8,24 @@ interface TranscriptSource {
   rawText: string;
 }
 
+// 1. Define Synonyms Map manually
+const SYNONYM_MAP: Record<string, string[]> = {
+  "打針": ["疫苗", "接種", "施打"],
+  "生病": ["確診", "感染", "病例", "重症"],
+  "傳染": ["傳播", "感染"],
+  "藥": ["抗病毒", "清冠", "Paxlovid", "莫納皮拉韋"],
+  "小孩": ["兒童", "幼兒", "少兒"],
+  "老人": ["長者", "高齡"],
+  "戴口罩": ["佩戴", "口罩"],
+  "快篩": ["檢測", "篩檢"],
+  "吃飯": ["聚餐", "用餐", "脫口罩"],
+  "隔離": ["檢疫", "自主健康管理"],
+  "國外": ["境外", "國際", "邊境"],
+  "回家": ["返台", "入境"],
+  "死": ["死亡", "病逝"],
+  "錢": ["津貼", "費用", "公費", "自費"],
+};
+
 const TRANSCRIPTS: TranscriptSource[] = [
   {
     videoId: "xlLcVJ4ny9A",
@@ -72,8 +90,8 @@ const TRANSCRIPTS: TranscriptSource[] = [
   },
   {
     videoId: "p38arL6bCXs",
-    date: "2023-04-27",
-    title: "2023/04/27 指揮中心記者會 (宣布降級解編)",
+    date: "2023-04-25",
+    title: "2023/04/25 指揮中心記者會 (宣布降級解編)",
     rawText: `
 8:01 它從法定傳染病的第五類改成第四類 那第二件事情是 指揮中心就解編
 10:35 那麼我們在這個中間 我們也去檢討了 這些相關的這個工作 其實我們 從去年的10月那開始 邊境開始逐漸解封
@@ -83,21 +101,6 @@ const TRANSCRIPTS: TranscriptSource[] = [
 53:08 所以投標廠商增加為 增加為4家 那由於各家廠商 他們的疫苗製程 還有核准適用的年齡 單價
 54:35 我想 一向 就是 我們如果是在國內合格的廠商 那關於這個流感疫苗 如果是有證的 那我們都是複數決標
 55:31 第四家是高端 高端是最後一個序位 我想大致上的情形是這樣子
-`
-  },
-  {
-    videoId: "oyflMvGjH7w",
-    date: "2023-04-27",
-    title: "2023/04/27 指揮中心終場記者會 (感恩儀式)",
-    rawText: `
-7:13 好 各位媒體朋友 還有各位嘉賓大家好 歡迎來參加最終場的記者會
-12:19 就是我們的中央流行疫情指揮中心將解編 那疫苗接種假也會隨之退場
-32:27 就是我們的這個 陳宗彥 前副指揮官 今天因為他有事情 他沒有辦法來
-37:53 指揮官請 請公佈答案 1194天 對
-38:26 開了960場 謝謝陳前指揮官 那我們請先回座休息一下
-39:08 李召集人您的答案是 這答案不太精確 將近7000張 謝謝你
-42:17 哇 那我們可以看到背板已經更新成功囉 象徵從今天起 準備邁向新生活
-48:44 請唱名到的長官 跟著工作人員引導到定位點 發送祈福餅乾
 `
   }
 ];
@@ -156,7 +159,19 @@ const DATABASE = parseTranscripts();
 
 // Update to accept multiple queries (original + synonyms)
 export const checkLocalData = (queries: string[]): VideoResult[] => {
-  const normalizedQueries = [...new Set(queries.map(q => q.toLowerCase().trim()).filter(q => q))];
+  let expandedQueries = [...queries];
+
+  // 2. Expand queries using Synonyms Map
+  queries.forEach(q => {
+    const term = q.trim();
+    if (SYNONYM_MAP[term]) {
+      expandedQueries = [...expandedQueries, ...SYNONYM_MAP[term]];
+    }
+    // Also check reverse mapping (if user types 'vaccine' match 'jab') - simplified here to direct mapping
+    // or partial mapping: if user types "打疫苗", maybe we match "疫苗"
+  });
+
+  const normalizedQueries = [...new Set(expandedQueries.map(q => q.toLowerCase().trim()).filter(q => q))];
   
   if (normalizedQueries.length === 0) return [];
 
