@@ -26,6 +26,9 @@ const SYNONYM_MAP: Record<string, string[]> = {
   "錢": ["津貼", "費用", "公費", "自費"],
 };
 
+// Define Daily Life keywords for categorization
+const DAILY_LIFE_KEYWORDS = ["吃飯", "回家", "小孩", "老人", "錢", "運動", "口罩", "生活", "聚餐", "禮券"];
+
 const TRANSCRIPTS: TranscriptSource[] = [
   {
     videoId: "xlLcVJ4ny9A",
@@ -167,8 +170,6 @@ export const checkLocalData = (queries: string[]): VideoResult[] => {
     if (SYNONYM_MAP[term]) {
       expandedQueries = [...expandedQueries, ...SYNONYM_MAP[term]];
     }
-    // Also check reverse mapping (if user types 'vaccine' match 'jab') - simplified here to direct mapping
-    // or partial mapping: if user types "打疫苗", maybe we match "疫苗"
   });
 
   const normalizedQueries = [...new Set(expandedQueries.map(q => q.toLowerCase().trim()).filter(q => q))];
@@ -186,6 +187,16 @@ export const checkLocalData = (queries: string[]): VideoResult[] => {
       if (textLower.includes(query)) {
         const id = `local-${segment.videoId}-${index}`;
         
+        // Determine Category
+        // Heuristic: If matched term or snippet contains daily keywords, mark as daily, otherwise medical
+        let category: 'medical' | 'daily' = 'medical';
+        for (const dailyKey of DAILY_LIFE_KEYWORDS) {
+           if (textLower.includes(dailyKey) || query.includes(dailyKey)) {
+             category = 'daily';
+             break;
+           }
+        }
+
         // Avoid duplicates
         if (!addedIds.has(id)) {
           results.push({
@@ -197,11 +208,11 @@ export const checkLocalData = (queries: string[]): VideoResult[] => {
             transcriptSnippet: segment.text,
             matchedTerm: query, // Record which term matched
             matchIndex: textLower.indexOf(query),
-            matchLength: query.length
+            matchLength: query.length,
+            category: category
           });
           addedIds.add(id);
         }
-        // If matched one synonym, no need to check others for this segment
         break; 
       }
     }

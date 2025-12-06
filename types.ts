@@ -9,6 +9,7 @@ export interface VideoResult {
   matchedTerm?: string; // The specific term (query or synonym) that matched
   matchIndex?: number; // Start index of match for highlighting
   matchLength?: number; // Length of match for highlighting
+  category: 'medical' | 'daily'; // New category field
 }
 
 export interface SearchState {
@@ -18,3 +19,5 @@ export interface SearchState {
   error: string | null;
   hasSearched: boolean;
 }
+
+export type Language = 'zh' | 'en';
