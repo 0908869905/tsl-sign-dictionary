@@ -27,6 +27,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
   const [isZoomed, setIsZoomed] = useState(false);
   
   const playerRef = useRef<any>(null);
+  const isLoopingRef = useRef(isLooping); // Ref to track loop state without re-triggering effect
   const containerId = `youtube-player-${result.id}`;
   const { t } = useLanguage();
   
@@ -34,6 +35,11 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
   const startTime = Math.max(0, Math.floor(result.timestamp) - 2);
   const loopEndTime = startTime + DURATION_SECONDS; 
   const videoUrl = `https://www.youtube.com/watch?v=${result.youtubeId}&t=${startTime}s`;
+
+  // Sync isLooping state to ref
+  useEffect(() => {
+    isLoopingRef.current = isLooping;
+  }, [isLooping]);
 
   // Initialize YouTube Player & Loop Logic
   useEffect(() => {
@@ -85,7 +91,8 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
 
       // Loop monitor
       loopInterval = setInterval(() => {
-         if (isLooping && playerRef.current && playerRef.current.getCurrentTime) {
+         // Check ref instead of state to avoid effect re-run
+         if (isLoopingRef.current && playerRef.current && playerRef.current.getCurrentTime) {
             const currentTime = playerRef.current.getCurrentTime();
             if (currentTime > loopEndTime) {
                playerRef.current.seekTo(startTime);
@@ -108,10 +115,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
         playerRef.current = null;
       }
     };
-  }, [isPlaying, result.youtubeId, startTime, containerId, isLooping]); // Added isLooping to deps might trigger re-init, so be careful. 
-  // Actually, standard useEffect for loop checking inside doesn't need re-init, but the closure needs fresh isLooping value if not using ref.
-  // To avoid player re-mount when toggling loop, we usually use a ref for isLooping or keep logic separate. 
-  // Simplified here: The loopInterval captures `isLooping` from state. Since useEffect depends on `isLooping`, toggling it re-sets the interval. That's fine.
+  }, [isPlaying, result.youtubeId, startTime, containerId]); // Removed isLooping from deps
 
   // Handle Playback Speed Change
   const handleSpeedChange = (speed: number) => {

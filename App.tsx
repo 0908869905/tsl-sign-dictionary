@@ -309,13 +309,13 @@ const SearchPage: React.FC = () => {
 
       <Footer />
       
-      {/* Hidden Admin Button - Very small and low opacity */}
+      {/* Visible Admin Button */}
       <button 
         onClick={() => setIsAdminOpen(true)}
-        className="fixed bottom-2 right-2 p-1 bg-gray-100 hover:bg-gray-200 text-gray-400 rounded-full opacity-20 hover:opacity-100 transition-all z-40"
-        title="Admin"
+        className="fixed bottom-4 right-4 p-3 bg-teal-600 text-white hover:bg-teal-700 rounded-full shadow-lg transition-all z-40"
+        title={t('adminLogin')}
       >
-        <Lock className="w-3 h-3" />
+        <Lock className="w-4 h-4" />
       </button>
 
       {/* Modals */}
