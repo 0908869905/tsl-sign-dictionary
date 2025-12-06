@@ -264,7 +264,7 @@ const SearchPage: React.FC = () => {
         {!state.hasSearched && !showBookmarks && (
           <div className="flex flex-wrap justify-center gap-2 text-sm mt-8">
             <span className="text-gray-500 self-center">{t('commonTerms')}:</span>
-            {["口罩", "快篩", "疫苗", "猴痘", "流感", "解編", "降級", "馬堡病毒", "清冠一號"].map(tag => (
+            {["疫苗", "確診", "隔離", "快篩", "口罩", "長新冠", "流感", "猴痘", "解編", "副作用"].map(tag => (
               <button
                 key={tag}
                 onClick={() => handleSearch(tag)}
