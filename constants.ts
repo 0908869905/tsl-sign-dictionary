@@ -9,7 +9,7 @@ export const PRE_BUFFER_SECONDS = 2; // Start 2 seconds before to catch the star
 export const DURATION_SECONDS = 10; // Loop duration
 
 // Security: SHA-256 hash of '980415'
-export const ADMIN_PASSWORD_HASH = "90b50371661642289c00427387431309f4b14917631168285521774e14256249";
+export const ADMIN_PASSWORD_HASH = "6dc7892f06b431afb325a0f9ccd94d0722f06c3da6551432172880abb17c68ef";
 
 export const TRANSLATIONS = {
   zh: {
