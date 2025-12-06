@@ -20,4 +20,11 @@ export interface SearchState {
   hasSearched: boolean;
 }
 
+export interface Feedback {
+  id: string;
+  date: string;
+  content: string;
+  type: string;
+}
+
 export type Language = 'zh' | 'en';

@@ -5,9 +5,11 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import SearchBar from './components/SearchBar';
 import VideoCard from './components/VideoCard';
+import AdminDashboard from './components/AdminDashboard';
+import FeedbackModal from './components/FeedbackModal';
 import { SearchState, VideoResult } from './types';
 import { checkLocalData } from './services/localData';
-import { Info, BookOpen, History, X, Star, MessageSquare } from 'lucide-react';
+import { Info, BookOpen, History, X, Star, MessageSquare, Lock } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 // Inner component to use Router & Language hooks
@@ -27,6 +29,10 @@ const SearchPage: React.FC = () => {
   const [bookmarks, setBookmarks] = useState<VideoResult[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'all' | 'medical' | 'daily'>('all');
+  
+  // Modals
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   // 1. Load History and Bookmarks on mount
   useEffect(() => {
@@ -113,7 +119,7 @@ const SearchPage: React.FC = () => {
     : displayedResults.filter(r => r.category === activeCategory);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50 relative">
       <Header />
       
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -290,7 +296,10 @@ const SearchPage: React.FC = () => {
                   </p>
                </div>
              </div>
-             <button className="whitespace-nowrap px-6 py-3 bg-white text-teal-700 font-medium rounded-lg border border-teal-200 hover:bg-teal-50 hover:border-teal-300 transition-all shadow-sm">
+             <button 
+               onClick={() => setIsFeedbackOpen(true)}
+               className="whitespace-nowrap px-6 py-3 bg-white text-teal-700 font-medium rounded-lg border border-teal-200 hover:bg-teal-50 hover:border-teal-300 transition-all shadow-sm block text-center cursor-pointer"
+             >
                {t('feedbackButton')}
              </button>
           </div>
@@ -299,6 +308,19 @@ const SearchPage: React.FC = () => {
       </main>
 
       <Footer />
+      
+      {/* Hidden Admin Button - Very small and low opacity */}
+      <button 
+        onClick={() => setIsAdminOpen(true)}
+        className="fixed bottom-2 right-2 p-1 bg-gray-100 hover:bg-gray-200 text-gray-400 rounded-full opacity-20 hover:opacity-100 transition-all z-40"
+        title="Admin"
+      >
+        <Lock className="w-3 h-3" />
+      </button>
+
+      {/* Modals */}
+      <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+      <AdminDashboard isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
     </div>
   );
 };

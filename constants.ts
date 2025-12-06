@@ -8,6 +8,9 @@ export const NO_RESULTS_MESSAGE = "在疾管署的記者會存檔中找不到此
 export const PRE_BUFFER_SECONDS = 2; // Start 2 seconds before to catch the start of the sign
 export const DURATION_SECONDS = 10; // Loop duration
 
+// Security: SHA-256 hash of '980415'
+export const ADMIN_PASSWORD_HASH = "90b50371661642289c00427387431309f4b14917631168285521774e14256249";
+
 export const TRANSLATIONS = {
   zh: {
     title: "台灣手語 (TSL) 影音辭典",
@@ -40,7 +43,21 @@ export const TRANSLATIONS = {
     bookmarked: "已收藏的單字片段",
     noBookmarks: "您目前沒有收藏任何片段。",
     noBookmarksHint: "在搜尋結果中點擊星星圖示即可收藏。",
-    startFrom: "從 {time} 開始"
+    startFrom: "從 {time} 開始",
+    adminLogin: "管理員登入",
+    password: "密碼",
+    login: "登入",
+    logout: "登出",
+    feedbackList: "回饋列表",
+    noFeedbacks: "目前沒有回饋資料。",
+    submit: "送出",
+    cancel: "取消",
+    feedbackType: "回饋類型",
+    feedbackContent: "內容描述",
+    successMsg: "發送成功！",
+    newWord: "新增詞彙建議",
+    bugReport: "錯誤回報",
+    other: "其他"
   },
   en: {
     title: "TSL Video Dictionary",
@@ -68,11 +85,25 @@ export const TRANSLATIONS = {
     watchOnYoutube: "Watch on YouTube",
     feedbackTitle: "Feedback",
     feedbackDesc: "Can't find a word? Found an error? Let us know.",
-    feedbackButton: "Send Feedback",
+    feedbackButton: "Fill Feedback Form",
     footerDesc: "TSL Search - Educational Prototype",
     bookmarked: "Bookmarked Segments",
     noBookmarks: "No bookmarks yet.",
     noBookmarksHint: "Click the star icon on any video to bookmark it.",
-    startFrom: "Starts at {time}"
+    startFrom: "Starts at {time}",
+    adminLogin: "Admin Login",
+    password: "Password",
+    login: "Login",
+    logout: "Logout",
+    feedbackList: "Feedback List",
+    noFeedbacks: "No feedbacks yet.",
+    submit: "Submit",
+    cancel: "Cancel",
+    feedbackType: "Feedback Type",
+    feedbackContent: "Description",
+    successMsg: "Sent Successfully!",
+    newWord: "New Word Suggestion",
+    bugReport: "Bug Report",
+    other: "Other"
   }
 };
