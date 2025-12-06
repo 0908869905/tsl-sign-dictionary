@@ -1,7 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { VideoResult } from '../types';
-import { ExternalLink, Clock, PlayCircle, Youtube, Link as LinkIcon, Check, Star } from 'lucide-react';
+import { Clock, PlayCircle, Youtube, Link as LinkIcon, Check, Star, Gauge } from 'lucide-react';
+
+// Add type definition for window.YT
+declare global {
+  interface Window {
+    YT: any;
+  }
+}
 
 interface VideoCardProps {
   result: VideoResult;
@@ -13,11 +20,86 @@ interface VideoCardProps {
 const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked = false, onToggleBookmark }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
+  const [currentSpeed, setCurrentSpeed] = useState(1.0);
+  const playerRef = useRef<any>(null);
+  const containerId = `youtube-player-${result.id}`;
   
   // Start 2 seconds early for context
   const startTime = Math.max(0, Math.floor(result.timestamp) - 2);
   const videoUrl = `https://www.youtube.com/watch?v=${result.youtubeId}&t=${startTime}s`;
-  const embedUrl = `https://www.youtube.com/embed/${result.youtubeId}?start=${startTime}&autoplay=1&rel=0`;
+
+  // Initialize YouTube Player
+  useEffect(() => {
+    let interval: any;
+
+    if (isPlaying) {
+      const initPlayer = () => {
+        if (window.YT && window.YT.Player) {
+          // Destroy existing instance if any
+          if (playerRef.current) {
+            try { playerRef.current.destroy(); } catch (e) {}
+          }
+
+          playerRef.current = new window.YT.Player(containerId, {
+            height: '100%',
+            width: '100%',
+            videoId: result.youtubeId,
+            playerVars: {
+              start: startTime,
+              autoplay: 1,
+              rel: 0,
+              modestbranding: 1,
+            },
+            events: {
+              onReady: (event: any) => {
+                // Ensure speed matches state (default 1.0)
+                event.target.setPlaybackRate(currentSpeed);
+              },
+            },
+          });
+        }
+      };
+
+      if (!window.YT) {
+        // Load API if not available
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.body.appendChild(tag);
+        
+        // Poll until YT is ready
+        interval = setInterval(() => {
+          if (window.YT && window.YT.Player) {
+            clearInterval(interval);
+            initPlayer();
+          }
+        }, 300);
+      } else {
+        initPlayer();
+      }
+    } else {
+      // Cleanup when stopping play
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch (e) {}
+        playerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch (e) {}
+        playerRef.current = null;
+      }
+    };
+  }, [isPlaying, result.youtubeId, startTime, containerId]);
+
+  // Handle Playback Speed Change
+  const handleSpeedChange = (speed: number) => {
+    if (playerRef.current && playerRef.current.setPlaybackRate) {
+      playerRef.current.setPlaybackRate(speed);
+      setCurrentSpeed(speed);
+    }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(videoUrl).then(() => {
@@ -53,16 +135,34 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col group relative">
       
       {/* Video Player / Thumbnail Section */}
-      <div className="w-full aspect-video bg-gray-900 relative">
+      <div className="w-full aspect-video bg-gray-900 relative group/video">
         {isPlaying ? (
-          <iframe
-            src={embedUrl}
-            title={result.title}
-            className="w-full h-full"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          ></iframe>
+          <>
+            <div id={containerId} className="w-full h-full" />
+            
+            {/* Speed Controls Overlay */}
+            <div className="absolute top-2 right-2 z-20 opacity-0 group-hover/video:opacity-100 transition-opacity duration-200">
+               <div className="bg-black/70 backdrop-blur-md rounded-lg p-1.5 flex items-center gap-1 border border-white/10 shadow-lg">
+                  <div className="text-white/80 px-1.5 flex items-center gap-1.5 border-r border-white/20 mr-1">
+                    <Gauge className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">速度</span>
+                  </div>
+                  {[0.5, 1, 1.5, 2].map((speed) => (
+                    <button
+                      key={speed}
+                      onClick={() => handleSpeedChange(speed)}
+                      className={`text-xs font-medium px-2 py-1 rounded transition-colors ${
+                        currentSpeed === speed 
+                          ? 'bg-teal-600 text-white shadow-sm' 
+                          : 'text-gray-300 hover:text-white hover:bg-white/20'
+                      }`}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+               </div>
+            </div>
+          </>
         ) : (
           <button 
             onClick={() => setIsPlaying(true)}
