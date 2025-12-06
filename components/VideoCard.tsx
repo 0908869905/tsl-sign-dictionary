@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { VideoResult } from '../types';
-import { Clock, PlayCircle, Youtube, Link as LinkIcon, Check, Star, Gauge, Repeat, ZoomIn } from 'lucide-react';
+import { Clock, PlayCircle, Youtube, Link as LinkIcon, Check, Star, Gauge, Repeat, ZoomIn, ZoomOut } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { DURATION_SECONDS } from '../constants';
 
@@ -115,7 +115,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
         playerRef.current = null;
       }
     };
-  }, [isPlaying, result.youtubeId, startTime, containerId]); // Removed isLooping from deps
+  }, [isPlaying, result.youtubeId, startTime, containerId]); 
 
   // Handle Playback Speed Change
   const handleSpeedChange = (speed: number) => {
@@ -154,14 +154,17 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col group relative">
       
       {/* Video Player / Thumbnail Section */}
-      <div className={`w-full aspect-video bg-gray-900 relative group/video overflow-hidden transition-all duration-300 ${isZoomed ? 'scale-105 origin-center' : ''}`}>
-        {isZoomed && <div className="absolute inset-0 z-10 pointer-events-none border-[10px] border-teal-500/20" />}
+      <div className="w-full aspect-video bg-gray-900 relative group/video overflow-hidden">
+        {isZoomed && <div className="absolute inset-0 z-10 pointer-events-none border-[8px] border-teal-500/30" />}
         
         {isPlaying ? (
-          <div className={`w-full h-full transition-transform duration-300 ${isZoomed ? 'scale-125' : ''}`}>
-            <div id={containerId} className="w-full h-full" />
+          <>
+            {/* The Scalable Video Container */}
+            <div className={`w-full h-full transition-transform duration-300 origin-center ${isZoomed ? 'scale-150' : ''}`}>
+              <div id={containerId} className="w-full h-full" />
+            </div>
             
-            {/* Speed & Tool Controls Overlay */}
+            {/* Speed & Tool Controls Overlay - MOVED OUTSIDE the scaling div so it stays fixed */}
             <div className="absolute top-2 right-2 z-20 opacity-0 group-hover/video:opacity-100 transition-opacity duration-200 flex flex-col gap-2 items-end">
                {/* Speed */}
                <div className="bg-black/70 backdrop-blur-md rounded-lg p-1.5 flex items-center gap-1 border border-white/10 shadow-lg">
@@ -203,12 +206,12 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
                    }`}
                    title={t('zoom')}
                  >
-                   <ZoomIn className="w-3.5 h-3.5" />
+                   {isZoomed ? <ZoomOut className="w-3.5 h-3.5" /> : <ZoomIn className="w-3.5 h-3.5" />}
                    {t('zoom')}
                  </button>
                </div>
             </div>
-          </div>
+          </>
         ) : (
           <button 
             onClick={() => setIsPlaying(true)}
