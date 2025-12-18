@@ -2,19 +2,18 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { X, Mail, Lock, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 
-
 interface AuthModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-type AuthMode = 'magic_link' | 'password_login' | 'password_register';
+type AuthMode = 'password_login' | 'password_register';
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-    const { signIn, signInWithPassword, signUp } = useAuth(); // 使用 Context 方法
+    const { signInWithPassword, signUp } = useAuth(); // 使用 Context 方法
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [mode, setMode] = useState<AuthMode>('magic_link');
+    const [mode, setMode] = useState<AuthMode>('password_login');
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -27,11 +26,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         try {
             let result;
-            if (mode === 'magic_link') {
-                result = await signIn(email);
-                if (result.error) throw result.error;
-                setMessage({ type: 'success', text: '登入連結已發送至您的信箱，請查收！' });
-            } else if (mode === 'password_login') {
+            if (mode === 'password_login') {
                 result = await signInWithPassword(email, password);
                 if (result.error) throw result.error;
                 onClose(); // Close on success
@@ -54,7 +49,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 {/* Header */}
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-slate-50">
                     <h2 className="text-lg font-bold text-gray-800">
-                        {mode === 'magic_link' ? '快速登入' : mode === 'password_login' ? '帳號登入' : '註冊帳號'}
+                        {mode === 'password_login' ? '帳號登入' : '註冊帳號'}
                     </h2>
                     <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
                         <X className="w-5 h-5 text-gray-500" />
@@ -69,7 +64,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                 <CheckCircle className="w-8 h-8" />
                             </div>
                             <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                                {mode === 'password_register' ? '註冊成功' : '發送成功'}
+                                {mode === 'password_register' ? '註冊成功' : '操作成功'}
                             </h3>
                             <p className="text-gray-600 mb-6">{message.text}</p>
 
@@ -89,12 +84,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                         <>
                             {/* Tabs */}
                             <div className="flex bg-gray-100 p-1 rounded-lg mb-6 text-sm">
-                                <button
-                                    onClick={() => { setMode('magic_link'); setMessage(null); }}
-                                    className={`flex-1 py-1.5 rounded-md transition-all ${mode === 'magic_link' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    Magic Link
-                                </button>
                                 <button
                                     onClick={() => { setMode('password_login'); setMessage(null); }}
                                     className={`flex-1 py-1.5 rounded-md transition-all ${mode === 'password_login' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'}`}
@@ -125,23 +114,21 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                     </div>
                                 </div>
 
-                                {mode !== 'magic_link' && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                        <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                            <input
-                                                type="password"
-                                                required
-                                                minLength={6}
-                                                value={password}
-                                                onChange={(e) => setPassword(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none transition-all"
-                                                placeholder="••••••••"
-                                            />
-                                        </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <input
+                                            type="password"
+                                            required
+                                            minLength={6}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                                            placeholder="••••••••"
+                                        />
                                     </div>
-                                )}
+                                </div>
 
                                 {message?.type === 'error' && (
                                     <div className="text-red-500 text-sm bg-red-50 p-2 rounded border border-red-100">
@@ -158,7 +145,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                         <Loader2 className="w-5 h-5 animate-spin" />
                                     ) : (
                                         <>
-                                            {mode === 'magic_link' ? '發送登入連結' : mode === 'password_login' ? '登入' : '註冊'}
+                                            {mode === 'password_login' ? '登入' : '註冊'}
                                             <ArrowRight className="w-4 h-4" />
                                         </>
                                     )}
@@ -166,7 +153,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                             </form>
 
                             <div className="mt-4 text-center text-xs text-gray-400">
-                                {mode === 'magic_link' ? '我們將發送一個一次性登入連結到您的信箱。' : '密碼長度至少需 6 個字元。'}
+                                密碼長度至少需 6 個字元。
                             </div>
                         </>
                     )}
