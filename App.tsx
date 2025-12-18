@@ -11,13 +11,16 @@ import { SearchState, VideoResult } from './types';
 import { checkLocalData } from './services/localData';
 import { Info, BookOpen, History, X, Star, MessageSquare, Lock } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthModal from './components/AuthModal';
+import { supabase } from './services/supabase';
 
 // Inner component to use Router & Language hooks
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useLanguage();
+
+  const { user } = useAuth(); // Get user from context
 
   const [state, setState] = useState<SearchState>({
     query: '',
@@ -37,19 +40,76 @@ const SearchPage: React.FC = () => {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
-  // 1. Load History and Bookmarks on mount
+  // 1. Load History on mount
   useEffect(() => {
     const savedHistory = localStorage.getItem('tsl_search_history');
     if (savedHistory) {
       try { setSearchHistory(JSON.parse(savedHistory)); } catch (e) { }
     }
-    const savedBookmarks = localStorage.getItem('tsl_bookmarks');
-    if (savedBookmarks) {
-      try { setBookmarks(JSON.parse(savedBookmarks)); } catch (e) { }
-    }
   }, []);
 
-  // 2. Deep Linking
+  // 2. Bookmarks Logic: Sync & Load
+  useEffect(() => {
+    const loadBookmarks = async () => {
+      if (user) {
+        // LOGIC: Logged In -> Sync Local to Remote, then Fetch Remote
+        const local = localStorage.getItem('tsl_bookmarks');
+        if (local) {
+          try {
+            const localBookmarks: VideoResult[] = JSON.parse(local);
+            if (localBookmarks.length > 0) {
+              console.log("Syncing local bookmarks to cloud...", localBookmarks.length);
+
+              // 1. Fetch existing remote IDs to avoid duplicates
+              const { data: existing } = await supabase.from('bookmarks').select('video_id');
+              const existingIds = new Set(existing?.map(e => e.video_id) || []);
+
+              // 2. Filter out what's already in cloud
+              const toInsert = localBookmarks
+                .filter(b => !existingIds.has(b.id))
+                .map(b => ({
+                  user_id: user.id,
+                  video_id: b.id,
+                  video_data: b
+                }));
+
+              // 3. Insert new ones
+              if (toInsert.length > 0) {
+                await supabase.from('bookmarks').insert(toInsert);
+              }
+
+              // 4. Clear local storage after sync
+              localStorage.removeItem('tsl_bookmarks');
+            }
+          } catch (e) {
+            console.error("Sync failed:", e);
+          }
+        }
+
+        // Fetch user's bookmarks from Supabase
+        const { data, error } = await supabase
+          .from('bookmarks')
+          .select('video_data')
+          .order('created_at', { ascending: false });
+
+        if (data) {
+          setBookmarks(data.map(row => row.video_data));
+        }
+      } else {
+        // LOGIC: Logged Out -> Read LocalStorage
+        const savedBookmarks = localStorage.getItem('tsl_bookmarks');
+        if (savedBookmarks) {
+          try { setBookmarks(JSON.parse(savedBookmarks)); } catch (e) { }
+        } else {
+          setBookmarks([]);
+        }
+      }
+    };
+
+    loadBookmarks();
+  }, [user]);
+
+  // 3. Deep Linking
   useEffect(() => {
     const queryParam = searchParams.get('q');
     if (queryParam && !state.hasSearched) {
@@ -72,15 +132,39 @@ const SearchPage: React.FC = () => {
     localStorage.removeItem('tsl_search_history');
   };
 
-  const toggleBookmark = (video: VideoResult) => {
+  const toggleBookmark = async (video: VideoResult) => {
+    // Determine new state first for Optimistic UI
+    const isBookmarked = bookmarks.some(b => b.id === video.id);
     let newBookmarks;
-    if (bookmarks.some(b => b.id === video.id)) {
+    if (isBookmarked) {
       newBookmarks = bookmarks.filter(b => b.id !== video.id);
     } else {
       newBookmarks = [video, ...bookmarks];
     }
+
+    // Update UI immediately
     setBookmarks(newBookmarks);
-    localStorage.setItem('tsl_bookmarks', JSON.stringify(newBookmarks));
+
+    if (user) {
+      // Cloud Storage
+      try {
+        if (isBookmarked) {
+          await supabase.from('bookmarks').delete().eq('video_id', video.id);
+        } else {
+          await supabase.from('bookmarks').insert({
+            user_id: user.id,
+            video_id: video.id,
+            video_data: video
+          });
+        }
+      } catch (err) {
+        console.error("Cloud bookmark error:", err);
+        // Revert on error? For now just log.
+      }
+    } else {
+      // Local Storage
+      localStorage.setItem('tsl_bookmarks', JSON.stringify(newBookmarks));
+    }
   };
 
   const performSearch = (query: string) => {
@@ -154,8 +238,8 @@ const SearchPage: React.FC = () => {
                     key={tab.id}
                     onClick={() => setActiveCategory(tab.id as any)}
                     className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeCategory === tab.id
-                        ? 'border-teal-500 text-teal-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-teal-500 text-teal-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                   >
                     {tab.label}
@@ -194,8 +278,8 @@ const SearchPage: React.FC = () => {
                 <button
                   onClick={() => setShowBookmarks(!showBookmarks)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all text-sm ${showBookmarks
-                      ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm'
-                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                    ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                     }`}
                 >
                   <Star className={`w-4 h-4 ${showBookmarks ? 'fill-yellow-500 text-yellow-500' : ''}`} />

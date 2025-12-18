@@ -39,7 +39,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, []);
 
     const signIn = async (email: string) => {
-        return supabase.auth.signInWithOtp({ email });
+        return supabase.auth.signInWithOtp({
+            email,
+            options: {
+                emailRedirectTo: window.location.origin,
+            }
+        });
     };
 
     const signInWithPassword = async (email: string, password: string) => {
@@ -47,7 +52,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     const signUp = async (email: string, password: string) => {
-        return supabase.auth.signUp({ email, password });
+        return supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo: window.location.origin,
+            }
+        });
     }
 
     const value = {
