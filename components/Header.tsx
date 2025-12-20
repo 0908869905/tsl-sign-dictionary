@@ -41,12 +41,15 @@ const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
 
           {user ? (
             <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-              <div className="flex items-center gap-2 text-sm text-gray-700 font-medium hidden sm:flex">
+              <button
+                onClick={onOpenAuth}
+                className="flex items-center gap-2 text-sm text-gray-700 font-medium hidden sm:flex hover:bg-gray-50 p-1.5 rounded-lg transition-colors"
+              >
                 <div className="w-8 h-8 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center">
                   <User className="w-4 h-4" />
                 </div>
                 <span className="max-w-[100px] truncate">{user.email?.split('@')[0]}</span>
-              </div>
+              </button>
               <button
                 onClick={() => signOut()}
                 className="text-gray-500 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition-colors"
