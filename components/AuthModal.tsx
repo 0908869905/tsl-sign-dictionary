@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { X, Mail, Lock, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
+import { X, Mail, Lock, ArrowRight, Loader2, CheckCircle, User as UserIcon, Save } from 'lucide-react';
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -10,16 +10,28 @@ interface AuthModalProps {
 type AuthMode = 'password_login' | 'password_register';
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-    const { signInWithPassword, signUp } = useAuth(); // 使用 Context 方法
+    const { signInWithPassword, signUp, user, profile, updateProfile, signOut } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [mode, setMode] = useState<AuthMode>('password_login');
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+    // Profile state
+    const [fullName, setFullName] = useState('');
+
+    useEffect(() => {
+        if (profile?.full_name) {
+            setFullName(profile.full_name);
+        }
+    }, [profile]);
+
     if (!isOpen) return null;
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    // Reset state when closing or switching modes handled by internal state logic,
+    // but here we might want to reset message on open if needed.
+
+    const handleAuthSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setMessage(null);
@@ -42,6 +54,94 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         }
     };
 
+    const handleProfileUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setMessage(null);
+
+        try {
+            const { error } = await updateProfile({ full_name: fullName });
+            if (error) throw error;
+            setMessage({ type: 'success', text: '個人資料更新成功！' });
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || '更新失敗。' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSignOut = async () => {
+        await signOut();
+        onClose();
+    };
+
+    // Render Logic
+    if (user) {
+        // Logged In View: Profile Editor
+        return (
+            <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-slate-50">
+                        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <UserIcon className="w-5 h-5 text-teal-600" />
+                            個人資料
+                        </h2>
+                        <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+                            <X className="w-5 h-5 text-gray-500" />
+                        </button>
+                    </div>
+
+                    <div className="p-6">
+                        {message && (
+                            <div className={`text-sm p-3 rounded mb-4 ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                                {message.text}
+                            </div>
+                        )}
+
+                        <div className="flex flex-col items-center mb-6">
+                            <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 text-3xl font-bold mb-3">
+                                {profile?.full_name?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
+                            </div>
+                            <div className="text-gray-500 text-sm">{user.email}</div>
+                        </div>
+
+                        <form onSubmit={handleProfileUpdate} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">暱稱 / 顯示名稱</label>
+                                <input
+                                    type="text"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                                    placeholder="設定您的暱稱"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                儲存變更
+                            </button>
+                        </form>
+
+                        <div className="mt-6 pt-4 border-t border-gray-100">
+                            <button
+                                onClick={handleSignOut}
+                                className="w-full text-red-500 hover:bg-red-50 py-2 rounded-lg transition-colors text-sm"
+                            >
+                                登出帳號
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Logged Out View: Login/Register
     return (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -98,7 +198,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-4">
+                            <form onSubmit={handleAuthSubmit} className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                                     <div className="relative">
