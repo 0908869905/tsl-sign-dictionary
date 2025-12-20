@@ -1501,17 +1501,35 @@ const parseTime = (timeStr: string): number => {
   return 0;
 };
 
+// 外部可設定的資料源（用於 Supabase 預載）
+let externalTranscripts: TranscriptSource[] | null = null;
+
+/**
+ * 設定外部資料源（從 Supabase 載入的資料）
+ * 呼叫此函數後，搜尋會使用 Supabase 資料而非硬編碼資料
+ */
+export const setTranscriptsSource = (transcripts: TranscriptSource[]) => {
+  externalTranscripts = transcripts;
+  // 重新解析資料庫
+  DATABASE.length = 0;
+  DATABASE.push(...parseTranscripts());
+  console.log(`[localData] 資料源已更新，共 ${DATABASE.length} 個片段`);
+};
+
 // Parse raw transcripts into searchable segments
 const parseTranscripts = () => {
-  let allSegments: { 
-    videoId: string; 
-    date: string; 
-    title: string; 
-    text: string; 
-    timestamp: number; 
+  // 優先使用外部資料源，若無則使用硬編碼的 TRANSCRIPTS
+  const dataSource = externalTranscripts || TRANSCRIPTS;
+
+  let allSegments: {
+    videoId: string;
+    date: string;
+    title: string;
+    text: string;
+    timestamp: number;
   }[] = [];
 
-  TRANSCRIPTS.forEach(source => {
+  dataSource.forEach(source => {
     // Regex to match lines starting with timestamp like "7:43" or "12:05"
     const lines = source.rawText.split('\n');
     let currentTime = 0;
@@ -1533,7 +1551,7 @@ const parseTranscripts = () => {
       } else if (line.trim() && currentTime > 0) {
         // Append to previous segment for context
         if (allSegments.length > 0 && allSegments[allSegments.length - 1].videoId === source.videoId) {
-           allSegments[allSegments.length - 1].text += " " + line.trim();
+          allSegments[allSegments.length - 1].text += " " + line.trim();
         }
       }
     });
@@ -1542,7 +1560,13 @@ const parseTranscripts = () => {
   return allSegments;
 };
 
-const DATABASE = parseTranscripts();
+const DATABASE: {
+  videoId: string;
+  date: string;
+  title: string;
+  text: string;
+  timestamp: number;
+}[] = parseTranscripts();
 
 // Update to accept multiple queries (original + synonyms)
 export const checkLocalData = (queries: string[]): VideoResult[] => {
@@ -1557,28 +1581,28 @@ export const checkLocalData = (queries: string[]): VideoResult[] => {
   });
 
   const normalizedQueries = [...new Set(expandedQueries.map(q => q.toLowerCase().trim()).filter(q => q))];
-  
+
   if (normalizedQueries.length === 0) return [];
 
   const results: VideoResult[] = [];
   const addedIds = new Set<string>();
-  
+
   DATABASE.forEach((segment, index) => {
     const textLower = segment.text.toLowerCase();
-    
+
     // Check if any of the queries match this segment
     for (const query of normalizedQueries) {
       if (textLower.includes(query)) {
         const id = `local-${segment.videoId}-${index}`;
-        
+
         // Determine Category
         // Heuristic: If matched term or snippet contains daily keywords, mark as daily, otherwise medical
         let category: 'medical' | 'daily' = 'medical';
         for (const dailyKey of DAILY_LIFE_KEYWORDS) {
-           if (textLower.includes(dailyKey) || query.includes(dailyKey)) {
-             category = 'daily';
-             break;
-           }
+          if (textLower.includes(dailyKey) || query.includes(dailyKey)) {
+            category = 'daily';
+            break;
+          }
         }
 
         // Avoid duplicates
@@ -1597,7 +1621,7 @@ export const checkLocalData = (queries: string[]): VideoResult[] => {
           });
           addedIds.add(id);
         }
-        break; 
+        break;
       }
     }
   });

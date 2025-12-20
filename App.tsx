@@ -8,12 +8,13 @@ import VideoCard from './components/VideoCard';
 import AdminDashboard from './components/AdminDashboard';
 import FeedbackModal from './components/FeedbackModal';
 import { SearchState, VideoResult } from './types';
-import { checkLocalData } from './services/localData';
+import { checkLocalData, setTranscriptsSource } from './services/localData';
 import { Info, BookOpen, History, X, Star, MessageSquare, Lock } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthModal from './components/AuthModal';
 import { supabase } from './services/supabase';
+import { loadTranscriptsFromSupabase } from './services/supabaseData';
 
 // Inner component to use Router & Language hooks
 const SearchPage: React.FC = () => {
@@ -39,6 +40,21 @@ const SearchPage: React.FC = () => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  // 0. 預載 Supabase 字幕資料（應用啟動時執行一次）
+  useEffect(() => {
+    const preloadData = async () => {
+      try {
+        const transcripts = await loadTranscriptsFromSupabase();
+        if (transcripts.length > 0) {
+          setTranscriptsSource(transcripts);
+        }
+      } catch (err) {
+        console.error('[App] 預載字幕資料失敗:', err);
+      }
+    };
+    preloadData();
+  }, []);
 
   // 1. Load History on mount
   useEffect(() => {
