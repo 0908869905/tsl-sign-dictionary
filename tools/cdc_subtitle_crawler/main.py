@@ -20,7 +20,7 @@ except ImportError:
     sys.exit(1)
 
 
-CHANNEL_URL = "https://www.youtube.com/@taiwancdc/videos"
+CHANNEL_URL = "https://www.youtube.com/@taiwancdc/streams"
 LIVE_KEYWORDS = ["直播", "記者會", "live"]  # 用於過濾直播影片的關鍵字
 OUTPUT_FILE = "cdc_livestream_subtitles.json"
 
@@ -111,6 +111,7 @@ def filter_livestreams(videos: list[dict]) -> list[dict]:
 def get_transcript(video_id: str) -> Optional[str]:
     """
     取得影片字幕，優先人工字幕，備用自動生成。
+    返回格式：每行為 "分:秒 字幕文字"，例如 "7:43 好 我們各位好朋友們"
     """
     try:
         # 取得所有可用字幕列表
@@ -132,10 +133,17 @@ def get_transcript(video_id: str) -> Optional[str]:
                 pass
         
         if transcript:
-            # 將字幕片段合併為完整文字
             segments = transcript.fetch()
-            full_text = " ".join([seg["text"] for seg in segments])
-            return full_text
+            # 格式化為 "分:秒 文字" 格式，與 localData.ts 的格式一致
+            lines = []
+            for seg in segments:
+                start_seconds = int(seg["start"])
+                minutes = start_seconds // 60
+                seconds = start_seconds % 60
+                text = seg["text"].replace("\n", " ").strip()
+                if text:
+                    lines.append(f"{minutes}:{seconds:02d} {text}")
+            return "\n".join(lines)
         
         return None
         
@@ -144,6 +152,54 @@ def get_transcript(video_id: str) -> Optional[str]:
     except Exception as e:
         print(f"  警告: 無法取得字幕 ({video_id}): {e}")
         return None
+
+
+def upload_to_supabase(video_id: str, title: str, raw_text: str) -> bool:
+    """
+    將字幕資料上傳到 Supabase transcripts 表。
+    """
+    # 從標題提取日期 (格式: YYYY/MM/DD 或 YYYYMMDD)
+    import re
+    date_match = re.search(r'(\d{4})[/\-]?(\d{2})[/\-]?(\d{2})', title)
+    if date_match:
+        date_str = f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
+    else:
+        date_str = datetime.now().strftime("%Y-%m-%d")
+    
+    data = {
+        "video_id": video_id,
+        "title": title,
+        "date": date_str,
+        "raw_text": raw_text,
+        "source": "cdc_crawler"
+    }
+    
+    url = f"{SUPABASE_URL}/rest/v1/transcripts"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+    }
+    
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode('utf-8'),
+            headers=headers,
+            method='POST'
+        )
+        with urllib.request.urlopen(req) as response:
+            return response.status in (200, 201)
+    except urllib.error.HTTPError as e:
+        if e.code == 409:  # Conflict - already exists
+            print(f"    ⚠ 已存在於資料庫")
+            return True
+        print(f"    ✗ 上傳失敗: {e.code} {e.reason}")
+        return False
+    except Exception as e:
+        print(f"    ✗ 上傳失敗: {e}")
+        return False
 
 
 def main():
@@ -179,6 +235,7 @@ def main():
     
     # 3. 下載字幕
     results = []
+    uploaded_count = 0
     for i, video in enumerate(new_livestreams, 1):
         print(f"[{i}/{len(new_livestreams)}] 處理: {video['title'][:50]}...")
         
@@ -194,6 +251,10 @@ def main():
         
         if transcript:
             print(f"  ✓ 字幕長度: {len(transcript)} 字元")
+            # 自動上傳到 Supabase
+            if upload_to_supabase(video["id"], video["title"], transcript):
+                uploaded_count += 1
+                print(f"    ✓ 已上傳至 Supabase")
         else:
             print(f"  ✗ 無可用字幕")
     
@@ -207,7 +268,9 @@ def main():
     print(f"完成! 共處理 {len(results)} 部直播影片")
     print(f"  - 有字幕: {with_transcript} 部")
     print(f"  - 無字幕: {len(results) - with_transcript} 部")
+    print(f"  - 已上傳至 Supabase: {uploaded_count} 部")
     print(f"輸出檔案: {OUTPUT_FILE}")
+
 
 
 if __name__ == "__main__":

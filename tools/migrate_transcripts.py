@@ -1,12 +1,15 @@
 """
 遷移腳本：將 localData.ts 的字幕資料寫入 Supabase transcripts 表格
+使用 urllib (無需額外套件)
 """
 
 import re
 import os
-from supabase import create_client, Client
+import json
+import urllib.request
+import urllib.error
 
-# Supabase 設定 (從 .env 讀取)
+# Supabase 設定
 SUPABASE_URL = "https://wlmpsblaiuxwrllqutlp.supabase.co"
 SUPABASE_KEY = "***REMOVED***"
 
@@ -58,9 +61,39 @@ def extract_raw_text_from_ts(file_path: str) -> dict:
     return result
 
 
+def upload_to_supabase(data: dict) -> bool:
+    """使用 urllib 上傳資料到 Supabase"""
+    url = f"{SUPABASE_URL}/rest/v1/transcripts"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+    }
+    
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode('utf-8'),
+            headers=headers,
+            method='POST'
+        )
+        with urllib.request.urlopen(req) as response:
+            return response.status in (200, 201)
+    except urllib.error.HTTPError as e:
+        if e.code == 409:  # Conflict - already exists
+            print(f"    ⚠ 已存在於資料庫 (更新)")
+            return True
+        print(f"    ✗ 上傳失敗: {e.code} {e.reason}")
+        return False
+    except Exception as e:
+        print(f"    ✗ 上傳失敗: {e}")
+        return False
+
+
 def main():
     print("=" * 50)
-    print("字幕資料遷移至 Supabase")
+    print("字幕資料遷移至 Supabase (使用 urllib)")
     print("=" * 50)
     
     # 1. 讀取 localData.ts 的 rawText
@@ -74,11 +107,8 @@ def main():
         print("錯誤: 無法從 localData.ts 提取資料")
         return
     
-    # 2. 連接 Supabase
+    # 2. 逐筆寫入
     print(f"\n連接 Supabase: {SUPABASE_URL}")
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    
-    # 3. 逐筆寫入
     success_count = 0
     for item in TRANSCRIPTS_TO_MIGRATE:
         video_id = item["video_id"]
@@ -88,22 +118,18 @@ def main():
             print(f"  ⚠ 跳過 {video_id}: 找不到對應的字幕內容")
             continue
         
-        try:
-            data = {
-                "video_id": video_id,
-                "title": item["title"],
-                "date": item["date"],
-                "raw_text": raw_text,
-                "source": item["source"]
-            }
-            
-            # Upsert: 若已存在則更新
-            result = supabase.table("transcripts").upsert(data, on_conflict="video_id").execute()
-            print(f"  ✓ 成功寫入: {item['title'][:40]}...")
+        data = {
+            "video_id": video_id,
+            "title": item["title"],
+            "date": item["date"],
+            "raw_text": raw_text,
+            "source": item["source"]
+        }
+        
+        print(f"  上傳: {item['title'][:40]}...")
+        if upload_to_supabase(data):
+            print(f"    ✓ 成功")
             success_count += 1
-            
-        except Exception as e:
-            print(f"  ✗ 寫入失敗 ({video_id}): {e}")
     
     print("\n" + "=" * 50)
     print(f"完成! 成功寫入 {success_count}/{len(TRANSCRIPTS_TO_MIGRATE)} 筆資料")
