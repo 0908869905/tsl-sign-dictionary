@@ -10,7 +10,7 @@ import urllib.request
 import urllib.error
 
 # Supabase 設定
-SUPABASE_URL = "https://wlmpsblaiuxwrllqutlp.supabase.co"
+SUPABASE_URL = "https://xbqupnpwmevtsqgfedtg.supabase.co"
 SUPABASE_KEY = "***REMOVED***"
 
 # 手動定義要遷移的資料 (從 localData.ts 提取)

@@ -44,7 +44,7 @@ LIVE_KEYWORDS = ["直播", "記者會", "live"]  # 用於過濾直播影片的�
 OUTPUT_FILE = "cdc_livestream_subtitles.json"
 
 # Supabase 設定
-SUPABASE_URL = "https://wlmpsblaiuxwrllqutlp.supabase.co"
+SUPABASE_URL = "https://xbqupnpwmevtsqgfedtg.supabase.co"
 SUPABASE_KEY = "***REMOVED***"
 
 # Whisper 設定
@@ -213,8 +213,11 @@ def get_transcript(video_id: str) -> Optional[str]:
     返回格式：每行為 "分:秒 字幕文字"，例如 "7:43 好 我們各位好朋友們"
     """
     try:
+        # 新版 API: 實例化後調用方法
+        ytt_api = YouTubeTranscriptApi()
+        
         # 取得所有可用字幕列表
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript_list = ytt_api.list(video_id)
         
         transcript = None
         
@@ -232,14 +235,14 @@ def get_transcript(video_id: str) -> Optional[str]:
                 pass
         
         if transcript:
-            segments = transcript.fetch()
+            fetched = transcript.fetch()
             # 格式化為 "分:秒 文字" 格式，與 localData.ts 的格式一致
             lines = []
-            for seg in segments:
-                start_seconds = int(seg["start"])
+            for snippet in fetched:
+                start_seconds = int(snippet.start)
                 minutes = start_seconds // 60
                 seconds = start_seconds % 60
-                text = seg["text"].replace("\n", " ").strip()
+                text = snippet.text.replace("\n", " ").strip()
                 if text:
                     lines.append(f"{minutes}:{seconds:02d} {text}")
             return "\n".join(lines)
@@ -336,12 +339,28 @@ def main():
     results = []
     uploaded_count = 0
     whisper_count = 0
+    import time
+    import random
+    
     for i, video in enumerate(new_livestreams, 1):
         print(f"[{i}/{len(new_livestreams)}] 處理: {video['title'][:50]}...")
         
-        # 優先嘗試 YouTube 字幕
-        transcript = get_transcript(video["id"])
+        # 加入隨機延遲避免被 YouTube 限速 (2-5 秒)
+        delay = random.uniform(2, 5)
+        print(f"  ⏳ 等待 {delay:.1f} 秒...")
+        time.sleep(delay)
+        
+        # 優先嘗試 YouTube 字幕 (最多重試 3 次)
+        transcript = None
         source = "youtube"
+        for attempt in range(3):
+            try:
+                transcript = get_transcript(video["id"])
+                break
+            except Exception as e:
+                print(f"  ⚠ 嘗試 {attempt + 1}/3 失敗: {e}")
+                if attempt < 2:
+                    time.sleep(3)  # 重試前等待
         
         # 若無 YouTube 字幕，使用 Whisper
         if transcript is None:
