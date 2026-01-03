@@ -2,7 +2,6 @@
 疾管署直播字幕爬蟲工具
 抓取 @taiwancdc YouTube 頻道中所有「直播」影片的字幕。
 自動跳過 Supabase 資料庫中已存在的影片。
-若無 YouTube 字幕，使用 OpenAI Whisper 進行語音辨識。
 """
 
 import json
@@ -10,8 +9,6 @@ import subprocess
 import sys
 import urllib.request
 import urllib.error
-import os
-import tempfile
 from datetime import datetime
 from typing import Optional, Set
 
@@ -22,21 +19,7 @@ except ImportError:
     print("請先安裝依賴: pip install -r requirements.txt")
     sys.exit(1)
 
-# Whisper 相關 (延遲載入以加速啟動)
-whisper_model = None
 
-def load_whisper():
-    global whisper_model
-    if whisper_model is None:
-        try:
-            import whisper
-            print("  載入 Whisper 模型 (base)...")
-            whisper_model = whisper.load_model("base")
-            print("  ✓ Whisper 模型載入完成")
-        except ImportError:
-            print("  ✗ 請安裝 openai-whisper: pip install openai-whisper")
-            return None
-    return whisper_model
 
 
 CHANNEL_URL = "https://www.youtube.com/@taiwancdc/streams"
@@ -47,84 +30,8 @@ OUTPUT_FILE = "cdc_livestream_subtitles.json"
 SUPABASE_URL = "https://xbqupnpwmevtsqgfedtg.supabase.co"
 SUPABASE_KEY = "***REMOVED***"
 
-# Whisper 設定
-WHISPER_MODEL = "base"  # tiny, base, small, medium, large
-MAX_WHISPER_DURATION = 3600  # 最長處理 1 小時的影片
 
 
-def transcribe_with_whisper(video_id: str) -> Optional[str]:
-    """
-    使用 OpenAI Whisper 對影片進行語音辨識。
-    返回格式：每行為 "分:秒 字幕文字"
-    """
-    model = load_whisper()
-    if model is None:
-        return None
-    
-    audio_file = None
-    try:
-        # 使用 yt-dlp 下載音訊
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
-            audio_file = tmp.name
-        
-        print(f"    下載音訊中...")
-        cmd = [
-            "yt-dlp",
-            "-x",  # 只提取音訊
-            "--audio-format", "mp3",
-            "--audio-quality", "5",  # 中等品質，加快下載
-            "-o", audio_file,
-            f"https://www.youtube.com/watch?v={video_id}"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
-        if result.returncode != 0:
-            print(f"    ✗ 下載失敗: {result.stderr[:100]}")
-            return None
-        
-        # 確認檔案存在 (yt-dlp 可能會加上副檔名)
-        if not os.path.exists(audio_file):
-            # 嘗試找到實際檔案
-            for ext in ['.mp3', '.m4a', '.webm', '.opus']:
-                potential = audio_file.replace('.mp3', ext)
-                if os.path.exists(potential):
-                    audio_file = potential
-                    break
-        
-        if not os.path.exists(audio_file):
-            print(f"    ✗ 找不到下載的音訊檔案")
-            return None
-        
-        print(f"    Whisper 辨識中 (這可能需要幾分鐘)...")
-        result = model.transcribe(
-            audio_file,
-            language="zh",
-            task="transcribe",
-            verbose=False
-        )
-        
-        # 格式化輸出
-        lines = []
-        for segment in result["segments"]:
-            start_seconds = int(segment["start"])
-            minutes = start_seconds // 60
-            seconds = start_seconds % 60
-            text = segment["text"].strip()
-            if text:
-                lines.append(f"{minutes}:{seconds:02d} {text}")
-        
-        return "\n".join(lines) if lines else None
-        
-    except Exception as e:
-        print(f"    ✗ Whisper 辨識失敗: {e}")
-        return None
-    finally:
-        # 清理暫存檔案
-        if audio_file and os.path.exists(audio_file):
-            try:
-                os.remove(audio_file)
-            except:
-                pass
 
 
 
@@ -338,7 +245,6 @@ def main():
     # 3. 下載字幕
     results = []
     uploaded_count = 0
-    whisper_count = 0
     import time
     import random
     
@@ -350,9 +256,8 @@ def main():
         print(f"  ⏳ 等待 {delay:.1f} 秒...")
         time.sleep(delay)
         
-        # 優先嘗試 YouTube 字幕 (最多重試 3 次)
+        # 嘗試取得 YouTube 字幕 (最多重試 3 次)
         transcript = None
-        source = "youtube"
         for attempt in range(3):
             try:
                 transcript = get_transcript(video["id"])
@@ -362,25 +267,16 @@ def main():
                 if attempt < 2:
                     time.sleep(3)  # 重試前等待
         
-        # 若無 YouTube 字幕，使用 Whisper
-        if transcript is None:
-            print(f"  ⚠ 無 YouTube 字幕，嘗試 Whisper 語音辨識...")
-            transcript = transcribe_with_whisper(video["id"])
-            source = "whisper"
-            if transcript:
-                whisper_count += 1
-        
         results.append({
             "title": video["title"],
             "url": video["url"],
             "video_id": video["id"],
             "transcript": transcript,
-            "has_transcript": transcript is not None,
-            "source": source if transcript else None
+            "has_transcript": transcript is not None
         })
         
         if transcript:
-            print(f"  ✓ 字幕長度: {len(transcript)} 字元 (來源: {source})")
+            print(f"  ✓ 字幕長度: {len(transcript)} 字元")
             # 自動上傳到 Supabase
             if upload_to_supabase(video["id"], video["title"], transcript):
                 uploaded_count += 1
@@ -397,8 +293,6 @@ def main():
     print("\n" + "=" * 50)
     print(f"完成! 共處理 {len(results)} 部直播影片")
     print(f"  - 有字幕: {with_transcript} 部")
-    print(f"    - YouTube 字幕: {with_transcript - whisper_count} 部")
-    print(f"    - Whisper 辨識: {whisper_count} 部")
     print(f"  - 無字幕: {len(results) - with_transcript} 部")
     print(f"  - 已上傳至 Supabase: {uploaded_count} 部")
     print(f"輸出檔案: {OUTPUT_FILE}")
