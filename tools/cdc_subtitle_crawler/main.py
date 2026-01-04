@@ -251,8 +251,8 @@ def main():
     for i, video in enumerate(new_livestreams, 1):
         print(f"[{i}/{len(new_livestreams)}] 處理: {video['title'][:50]}...")
         
-        # 加入隨機延遲避免被 YouTube 限速 (2-5 秒)
-        delay = random.uniform(2, 5)
+        # 加入隨機延遲避免被 YouTube 限速 (10-20 秒)
+        delay = random.uniform(1, 2)
         print(f"  ⏳ 等待 {delay:.1f} 秒...")
         time.sleep(delay)
         
