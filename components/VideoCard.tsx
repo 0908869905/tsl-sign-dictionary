@@ -160,7 +160,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ result, searchQuery, isBookmarked
         {isPlaying ? (
           <>
             {/* The Scalable Video Container */}
-            <div className={`w-full h-full transition-transform duration-300 origin-center ${isZoomed ? 'scale-150' : ''}`}>
+            <div className={`w-full h-full transition-transform duration-300 ${isZoomed ? 'scale-[3] origin-right' : ''}`}>
               <div id={containerId} className="w-full h-full" />
             </div>
             
