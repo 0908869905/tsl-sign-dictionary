@@ -1,7 +1,8 @@
 """
-疾管署直播字幕爬蟲工具
+疾管署直播字幕爬蟲工具 (含 WebShare 代理支援)
 抓取 @taiwancdc YouTube 頻道中所有「直播」影片的字幕。
 自動跳過 Supabase 資料庫中已存在的影片。
+支援代理輪換，遇到 IP 封鎖時自動切換代理。
 """
 
 import json
@@ -9,36 +10,135 @@ import subprocess
 import sys
 import urllib.request
 import urllib.error
+import random
+import time
 from datetime import datetime
-from typing import Optional, Set
+from typing import Optional, Set, List, Dict
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
     from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+    from youtube_transcript_api.proxies import WebshareProxyConfig
 except ImportError:
     print("請先安裝依賴: pip install -r requirements.txt")
     sys.exit(1)
 
 
-
-
+# ==================== 設定區 ====================
 CHANNEL_URL = "https://www.youtube.com/@taiwancdc/streams"
-LIVE_KEYWORDS = ["直播", "記者會", "live"]  # 用於過濾直播影片的關鍵字
+LIVE_KEYWORDS = ["直播", "記者會", "live"]
 OUTPUT_FILE = "cdc_livestream_subtitles.json"
 
 # Supabase 設定
 SUPABASE_URL = "https://xbqupnpwmevtsqgfedtg.supabase.co"
 SUPABASE_KEY = "***REMOVED***"
 
+# WebShare 代理設定
+WEBSHARE_API_KEY = "***REMOVED***"
+USE_PROXY = True  # 設為 False 可關閉代理
+
+# 延遲設定 (秒)
+MIN_DELAY = 3
+MAX_DELAY = 6
 
 
+# ==================== 代理管理 ====================
+class ProxyManager:
+    """管理 WebShare 代理輪換"""
+    
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.proxies: List[Dict] = []
+        self.current_index = 0
+        self.failed_count = 0
+        self.max_failures = 3  # 連續失敗次數超過此值則切換代理
+        
+    def fetch_proxies(self) -> bool:
+        """從 WebShare API 取得代理列表"""
+        print("正在從 WebShare 取得代理列表...")
+        
+        url = "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=100"
+        headers = {
+            "Authorization": f"Token {self.api_key}"
+        }
+        
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                
+            if "results" in data and len(data["results"]) > 0:
+                self.proxies = data["results"]
+                print(f"  ✓ 取得 {len(self.proxies)} 個代理")
+                return True
+            else:
+                print("  ✗ 無可用代理")
+                return False
+                
+        except Exception as e:
+            print(f"  ✗ 取得代理失敗: {e}")
+            return False
+    
+    def get_current_proxy(self) -> Optional[Dict]:
+        """取得當前代理"""
+        if not self.proxies:
+            return None
+        return self.proxies[self.current_index % len(self.proxies)]
+    
+    def get_proxy_config(self) -> Optional[WebshareProxyConfig]:
+        """取得用於 youtube-transcript-api 的代理設定"""
+        proxy = self.get_current_proxy()
+        if not proxy:
+            return None
+        
+        try:
+            return WebshareProxyConfig(
+                proxy_username=proxy.get("username"),
+                proxy_password=proxy.get("password")
+            )
+        except Exception as e:
+            print(f"  ⚠ 建立代理設定失敗: {e}")
+            return None
+    
+    def rotate(self):
+        """切換到下一個代理"""
+        if self.proxies:
+            old_index = self.current_index
+            self.current_index = (self.current_index + 1) % len(self.proxies)
+            self.failed_count = 0
+            proxy = self.get_current_proxy()
+            print(f"  🔄 切換代理: #{old_index + 1} → #{self.current_index + 1} ({proxy.get('proxy_address', 'N/A')})")
+    
+    def report_failure(self) -> bool:
+        """回報失敗，返回是否應該切換代理"""
+        self.failed_count += 1
+        if self.failed_count >= self.max_failures:
+            self.rotate()
+            return True
+        return False
+    
+    def report_success(self):
+        """回報成功"""
+        self.failed_count = 0
 
 
+# 全域代理管理器
+proxy_manager: Optional[ProxyManager] = None
 
+
+def init_proxy():
+    """初始化代理管理器"""
+    global proxy_manager
+    if USE_PROXY and WEBSHARE_API_KEY:
+        proxy_manager = ProxyManager(WEBSHARE_API_KEY)
+        if not proxy_manager.fetch_proxies():
+            print("警告: 無法取得代理，將不使用代理")
+            proxy_manager = None
+
+
+# ==================== 資料庫操作 ====================
 def get_existing_video_ids() -> Set[str]:
-    """
-    從 Supabase 讀取已存在的 video_id 列表，用於去重。
-    """
+    """從 Supabase 讀取已存在的 video_id 列表"""
     print("檢查 Supabase 中已存在的影片...")
     
     url = f"{SUPABASE_URL}/rest/v1/transcripts?select=video_id"
@@ -59,17 +159,56 @@ def get_existing_video_ids() -> Set[str]:
         return set()
 
 
-def get_channel_videos() -> list[dict]:
-    """
-    使用 yt-dlp 抓取頻道所有影片的基本資訊。
-    返回包含 id, title, url 的字典列表。
-    """
+def upload_to_supabase(video_id: str, title: str, raw_text: str) -> bool:
+    """將字幕資料上傳到 Supabase"""
+    import re
+    date_match = re.search(r'(\d{4})[/\-]?(\d{1,2})[/\-]?(\d{1,2})', title)
+    if date_match:
+        year, month, day = date_match.groups()
+        date_str = f"{year}-{int(month):02d}-{int(day):02d}"
+    else:
+        date_str = datetime.now().strftime("%Y-%m-%d")
+    
+    url = f"{SUPABASE_URL}/rest/v1/transcripts"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    
+    payload = json.dumps({
+        "video_id": video_id,
+        "title": title,
+        "date": date_str,
+        "raw_text": raw_text,
+        "source": "cdc_crawler"
+    }).encode('utf-8')
+    
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+        with urllib.request.urlopen(req) as response:
+            return response.status == 201
+    except urllib.error.HTTPError as e:
+        if e.code == 409:
+            print(f"    ⚠ 影片已存在，跳過")
+        else:
+            print(f"    ✗ 上傳失敗: {e.code} {e.reason}")
+        return False
+    except Exception as e:
+        print(f"    ✗ 上傳失敗: {e}")
+        return False
+
+
+# ==================== YouTube 操作 ====================
+def get_channel_videos() -> List[Dict]:
+    """使用 yt-dlp 抓取頻道影片列表"""
     print(f"正在抓取頻道影片列表: {CHANNEL_URL}")
     
     cmd = [
         "yt-dlp",
-        "--flat-playlist",      # 不下載，只列出
-        "--dump-json",          # 輸出 JSON
+        "--flat-playlist",
+        "--dump-json",
         "--no-warnings",
         CHANNEL_URL
     ]
@@ -100,10 +239,8 @@ def get_channel_videos() -> list[dict]:
     return videos
 
 
-def filter_livestreams(videos: list[dict]) -> list[dict]:
-    """
-    過濾出標題包含直播關鍵字的影片。
-    """
+def filter_livestreams(videos: List[Dict]) -> List[Dict]:
+    """過濾出直播影片"""
     livestreams = []
     for video in videos:
         title_lower = video["title"].lower()
@@ -114,27 +251,41 @@ def filter_livestreams(videos: list[dict]) -> list[dict]:
     return livestreams
 
 
-def get_transcript(video_id: str) -> Optional[str]:
+def get_transcript(video_id: str) -> tuple[Optional[str], bool]:
     """
-    取得影片字幕，優先人工字幕，備用自動生成。
-    返回格式：每行為 "分:秒 字幕文字"，例如 "7:43 好 我們各位好朋友們"
+    取得影片字幕，支援代理
+    返回: (transcript, is_ip_blocked)
+    - transcript: 字幕內容或 None
+    - is_ip_blocked: 是否因 IP 被封鎖而失敗
     """
+    global proxy_manager
+    
     try:
-        # 新版 API: 實例化後調用方法
-        ytt_api = YouTubeTranscriptApi()
+        # 建立 API 實例，使用代理
+        if proxy_manager:
+            proxy_config = proxy_manager.get_proxy_config()
+            if proxy_config:
+                try:
+                    ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config)
+                except Exception as e:
+                    print(f"  ⚠ 代理設定失敗，使用直連: {e}")
+                    ytt_api = YouTubeTranscriptApi()
+            else:
+                ytt_api = YouTubeTranscriptApi()
+        else:
+            ytt_api = YouTubeTranscriptApi()
         
-        # 取得所有可用字幕列表
         transcript_list = ytt_api.list(video_id)
         
         transcript = None
         
-        # 優先嘗試人工上傳的繁體中文字幕
+        # 優先人工字幕
         try:
             transcript = transcript_list.find_manually_created_transcript(['zh-TW', 'zh-Hant', 'zh'])
         except NoTranscriptFound:
             pass
         
-        # 備用：自動生成的字幕
+        # 備用自動生成
         if not transcript:
             try:
                 transcript = transcript_list.find_generated_transcript(['zh-TW', 'zh-Hant', 'zh', 'zh-Hans'])
@@ -143,7 +294,6 @@ def get_transcript(video_id: str) -> Optional[str]:
         
         if transcript:
             fetched = transcript.fetch()
-            # 格式化為 "分:秒 文字" 格式，與 localData.ts 的格式一致
             lines = []
             for snippet in fetched:
                 start_seconds = int(snippet.start)
@@ -152,84 +302,54 @@ def get_transcript(video_id: str) -> Optional[str]:
                 text = snippet.text.replace("\n", " ").strip()
                 if text:
                     lines.append(f"{minutes}:{seconds:02d} {text}")
-            return "\n".join(lines)
+            
+            # 成功，回報
+            if proxy_manager:
+                proxy_manager.report_success()
+            
+            return "\n".join(lines), False
         
-        return None
+        # 沒有字幕，但不是 IP 封鎖
+        return None, False
         
     except TranscriptsDisabled:
-        return None
+        return None, False
     except Exception as e:
-        print(f"  警告: 無法取得字幕 ({video_id}): {e}")
-        return None
+        error_msg = str(e)
+        
+        # 檢查是否是 IP 封鎖 (特定錯誤訊息)
+        if "blocking requests from your IP" in error_msg or "IP has been blocked" in error_msg:
+            print(f"  🚫 IP 被封鎖！")
+            return None, True  # IP 被封鎖
+        else:
+            # 其他錯誤，跳過這個影片
+            print(f"  ⚠ 無法取得字幕: {error_msg[:80]}...")
+            return None, False
 
 
-def upload_to_supabase(video_id: str, title: str, raw_text: str) -> bool:
-    """
-    將字幕資料上傳到 Supabase transcripts 表。
-    """
-    # 從標題提取日期 (格式: YYYY/MM/DD 或 YYYYMMDD)
-    import re
-    date_match = re.search(r'(\d{4})[/\-]?(\d{2})[/\-]?(\d{2})', title)
-    if date_match:
-        date_str = f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
-    else:
-        date_str = datetime.now().strftime("%Y-%m-%d")
-    
-    data = {
-        "video_id": video_id,
-        "title": title,
-        "date": date_str,
-        "raw_text": raw_text,
-        "source": "cdc_crawler"
-    }
-    
-    url = f"{SUPABASE_URL}/rest/v1/transcripts"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates"
-    }
-    
-    try:
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(data).encode('utf-8'),
-            headers=headers,
-            method='POST'
-        )
-        with urllib.request.urlopen(req) as response:
-            return response.status in (200, 201)
-    except urllib.error.HTTPError as e:
-        if e.code == 409:  # Conflict - already exists
-            print(f"    ⚠ 已存在於資料庫")
-            return True
-        print(f"    ✗ 上傳失敗: {e.code} {e.reason}")
-        return False
-    except Exception as e:
-        print(f"    ✗ 上傳失敗: {e}")
-        return False
-
-
+# ==================== 主程式 ====================
 def main():
     print("=" * 50)
-    print("疾管署直播字幕爬蟲工具")
+    print("疾管署直播字幕爬蟲工具 (WebShare 代理版)")
     print("=" * 50)
     
-    # 0. 先取得已存在的影片 ID (去重用)
+    # 初始化代理
+    init_proxy()
+    
+    # 取得已存在的影片 ID
     existing_ids = get_existing_video_ids()
     
-    # 1. 取得頻道所有影片
+    # 抓取頻道影片
     all_videos = get_channel_videos()
     
-    # 2. 過濾直播影片
+    # 過濾直播影片
     livestreams = filter_livestreams(all_videos)
     
     if not livestreams:
         print("找不到任何直播影片。")
         return
     
-    # 2.5 去重：排除已存在的影片
+    # 去重
     new_livestreams = [v for v in livestreams if v["id"] not in existing_ids]
     skipped_count = len(livestreams) - len(new_livestreams)
     
@@ -242,30 +362,40 @@ def main():
     
     print(f"將處理 {len(new_livestreams)} 部新影片")
     
-    # 3. 下載字幕
+    # 處理影片
     results = []
     uploaded_count = 0
-    import time
-    import random
     
     for i, video in enumerate(new_livestreams, 1):
         print(f"[{i}/{len(new_livestreams)}] 處理: {video['title'][:50]}...")
         
-        # 加入隨機延遲避免被 YouTube 限速 (10-20 秒)
-        delay = random.uniform(1, 2)
+        # 隨機延遲
+        delay = random.uniform(MIN_DELAY, MAX_DELAY)
         print(f"  ⏳ 等待 {delay:.1f} 秒...")
         time.sleep(delay)
         
-        # 嘗試取得 YouTube 字幕 (最多重試 3 次)
+        # 嘗試取得字幕
         transcript = None
-        for attempt in range(3):
-            try:
-                transcript = get_transcript(video["id"])
+        max_ip_retries = 5  # IP 被封鎖時最多切換代理重試次數
+        
+        for ip_retry in range(max_ip_retries):
+            transcript, is_ip_blocked = get_transcript(video["id"])
+            
+            if transcript:
+                # 成功取得字幕
                 break
-            except Exception as e:
-                print(f"  ⚠ 嘗試 {attempt + 1}/3 失敗: {e}")
-                if attempt < 2:
-                    time.sleep(3)  # 重試前等待
+            elif is_ip_blocked:
+                # IP 被封鎖，切換代理並重試
+                if proxy_manager and ip_retry < max_ip_retries - 1:
+                    proxy_manager.rotate()
+                    print(f"  🔄 IP 封鎖，切換代理後重試... ({ip_retry + 1}/{max_ip_retries})")
+                    time.sleep(3)  # 切換後等待
+                else:
+                    print(f"  ❌ 已嘗試 {max_ip_retries} 個代理，仍被封鎖，跳過此影片")
+                    break
+            else:
+                # 正常失敗（無字幕、字幕被禁用等），直接跳過此影片
+                break
         
         results.append({
             "title": video["title"],
@@ -277,14 +407,14 @@ def main():
         
         if transcript:
             print(f"  ✓ 字幕長度: {len(transcript)} 字元")
-            # 自動上傳到 Supabase
+            
             if upload_to_supabase(video["id"], video["title"], transcript):
                 uploaded_count += 1
                 print(f"    ✓ 已上傳至 Supabase")
         else:
-            print(f"  ✗ 無法取得字幕")
+            print(f"  ✗ 無法取得字幕，跳過")
     
-    # 4. 輸出結果
+    # 輸出結果
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
     
@@ -296,7 +426,6 @@ def main():
     print(f"  - 無字幕: {len(results) - with_transcript} 部")
     print(f"  - 已上傳至 Supabase: {uploaded_count} 部")
     print(f"輸出檔案: {OUTPUT_FILE}")
-
 
 
 if __name__ == "__main__":
