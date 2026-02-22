@@ -20,13 +20,13 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
   }, [inputValue, onSearch]);
 
   return (
-    <div className="w-full max-w-3xl mx-auto my-6 px-4">
-      <form onSubmit={handleSubmit} className="relative flex items-center w-full shadow-lg rounded-xl overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-teal-500 transition-all bg-white group">
-        <div className="pl-4 sm:pl-6 text-gray-400 group-focus-within:text-teal-500 transition-colors">
+    <div className="w-full max-w-2xl mx-auto my-8">
+      <form onSubmit={handleSubmit} className="relative">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
           {isLoading ? (
-            <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+            <Loader2 className="w-5 h-5 animate-spin text-accent" />
           ) : (
-            <Search className="w-6 h-6" />
+            <Search className="w-5 h-5" />
           )}
         </div>
         <input
@@ -35,15 +35,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
           onChange={(e) => setInputValue(e.target.value)}
           placeholder={t('searchPlaceholder')}
           disabled={isLoading}
-          className="w-full h-14 sm:h-16 px-4 text-base sm:text-lg text-gray-800 placeholder-gray-400 outline-none bg-transparent"
+          className="w-full bg-white border border-zinc-200 rounded-md py-4 pl-12 pr-4 text-lg text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
         />
-        <button
-          type="submit"
-          disabled={isLoading || !inputValue.trim()}
-          className="h-14 sm:h-16 px-6 sm:px-8 bg-teal-600 hover:bg-teal-700 text-white font-medium text-base sm:text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-        >
-          {t('searchButton')}
-        </button>
       </form>
     </div>
   );

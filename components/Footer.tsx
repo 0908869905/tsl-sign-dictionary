@@ -5,22 +5,20 @@ import { useLanguage } from '../contexts/LanguageContext';
 const Footer: React.FC = () => {
   const { t } = useLanguage();
   return (
-    <footer className="bg-gray-50 border-t border-gray-200 py-8 mt-auto">
-      <div className="max-w-5xl mx-auto px-4 text-center text-gray-500 text-sm">
-        <p className="mb-2">{t('footerDesc')}</p>
+    <footer className="mt-24 pt-8 border-t border-zinc-200 pb-12">
+      <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-zinc-400">
+        <p>Taiwan Sign Language Corpus &mdash; 2026</p>
         <p>
-          {t('source')}：
-          <a 
-            href="https://www.youtube.com/user/taiwancdc" 
-            target="_blank" 
-            rel="noreferrer" 
-            className="text-blue-600 hover:underline"
+          {t('source')}
+          {' '}
+          <a
+            href="https://www.youtube.com/user/taiwancdc"
+            target="_blank"
+            rel="noreferrer"
+            className="text-zinc-500 link-underline hover:text-accent transition-colors"
           >
             Taiwan CDC
           </a>
-        </p>
-        <p className="mt-4 text-xs text-gray-400">
-          Powered by React
         </p>
       </div>
     </footer>

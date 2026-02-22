@@ -3,13 +3,54 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>手語小查詢｜公視手語新聞字詞搜尋</title>
+    <title>台灣手語影音辭典｜TSL Corpus Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              accent: '#2F4F4F',
+              'accent-light': '#3D6B6B',
+            },
+            fontFamily: {
+              serif: ['Lora', 'Noto Serif TC', 'serif'],
+              sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
     <style>
       body {
-        font-family: 'Noto Sans TC', sans-serif;
-        background-color: #f8fafc;
+        font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        background-color: #FFFFFF;
+        color: #27272A;
+      }
+      /* 底線延展動畫 */
+      .link-underline {
+        position: relative;
+        text-decoration: none;
+      }
+      .link-underline::after {
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 1px;
+        bottom: -2px;
+        left: 0;
+        background-color: #2F4F4F;
+        transition: width 0.3s ease-out;
+      }
+      .link-underline:hover::after {
+        width: 100%;
+      }
+      /* Serif 標題 */
+      .font-display {
+        font-family: 'Lora', 'Noto Serif TC', serif;
       }
     </style>
   </head>
