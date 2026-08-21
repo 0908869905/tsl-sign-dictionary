@@ -8,8 +8,8 @@ export const NO_RESULTS_MESSAGE = "在疾管署的記者會存檔中找不到此
 export const PRE_BUFFER_SECONDS = 2; // Start 2 seconds before to catch the start of the sign
 export const DURATION_SECONDS = 10; // Loop duration
 
-// Security: SHA-256 hash of '980415'
-export const ADMIN_PASSWORD_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+// Security: SHA-256 hash of the admin password (rotate by replacing this constant)
+export const ADMIN_PASSWORD_HASH = "9c7c64d04627bdfe821017cb714e6d8a91bcd38dd2166c178c158d0a2164eb41";
 
 export const TRANSLATIONS = {
   zh: {

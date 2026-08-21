@@ -6,12 +6,18 @@
 import re
 import os
 import json
+
+try:  # 可選：若安裝 python-dotenv，讀取專案根目錄的 .env
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 import urllib.request
 import urllib.error
 
 # Supabase 設定
 SUPABASE_URL = "https://xbqupnpwmevtsqgfedtg.supabase.co"
-SUPABASE_KEY = "***REMOVED***"
+SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "")  # 從環境變數讀取，勿硬編碼
 
 # 手動定義要遷移的資料 (從 localData.ts 提取)
 TRANSCRIPTS_TO_MIGRATE = [

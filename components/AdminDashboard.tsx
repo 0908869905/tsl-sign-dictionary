@@ -71,10 +71,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ isOpen, onClose }) => {
       setPassword('');
     } else {
       setError('密碼錯誤');
-      // Log for admin convenience when setting new password
-      console.log('輸入密碼:', cleanPassword);
-      console.log('計算出的 Hash:', inputHash);
-      console.log('預期 Hash:', ADMIN_PASSWORD_HASH);
     }
   };
 
